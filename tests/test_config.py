@@ -205,6 +205,59 @@ def test_clock_window_contains_both_salary_dates_and_fy_end() -> None:
         assert start <= moment <= end, f"{label} falls outside the simulation window"
 
 
+# ------------------------------------------------- Phase 2: sourced regulatory bounds
+
+
+def test_retry_interval_respects_the_pre_debit_notification_floor() -> None:
+    """RBI's 2026 e-mandate framework requires a fresh pre-debit notification at least
+    24h before every attempt. A retry inside that window is not aggressive, it is
+    non-compliant — so this is a regulatory floor, not a tuning knob.
+
+    Phase 0 had 4 hours here, which would have produced an agent whose best strategy was
+    illegal.
+    """
+    b = CONFIG_A.bounds
+    assert b.pre_debit_notification_hours >= 24.0
+    assert b.min_inter_attempt_hours >= b.pre_debit_notification_hours
+
+
+def test_merchant_retry_policy_sits_inside_the_network_cap() -> None:
+    """Mastercard permits 10 retries per 30 days and Visa 15, so Mastercard binds.
+    The per-cycle figure is merchant policy and must stay under it."""
+    b = CONFIG_A.bounds
+    assert b.max_debits_per_mandate_cycle < b.network_retry_cap_per_30d
+
+
+def test_rejects_retry_faster_than_the_notification_window() -> None:
+    payload = CONFIG_A.model_dump()
+    payload["bounds"]["min_inter_attempt_hours"] = 4.0
+    with pytest.raises(ValidationError, match="non-compliant"):
+        WorldConfig.model_validate(payload)
+
+
+def test_rejects_merchant_policy_exceeding_the_network_cap() -> None:
+    payload = CONFIG_A.model_dump()
+    payload["bounds"]["max_debits_per_mandate_cycle"] = 99
+    with pytest.raises(ValidationError, match="network permits"):
+        WorldConfig.model_validate(payload)
+
+
+def test_rails_have_materially_different_failure_rates() -> None:
+    """UPI Autopay is stateless per debit; card mandates are bank-managed. Published
+    ranges are 8-15% against 2-3%, and a world where both rails fail alike would erase a
+    rail distinction the agent should be exploiting."""
+    rates = CONFIG_A.base_failure_rate_by_rail
+    assert rates[Rail.UPI_AUTOPAY] > 3 * rates[Rail.CARD_MANDATE]
+
+
+def test_afa_threshold_is_above_every_ordinary_plan() -> None:
+    """Below Rs 15,000 no additional-factor authentication is required, which is why
+    ``afa_timeout`` had to be rescoped in Phase 2 to cover pre-debit opt-outs as well —
+    scoped to AFA alone it would be unreachable on this plan ladder."""
+    threshold = CONFIG_A.bounds.afa_threshold_inr
+    assert all(p.amount_inr < threshold for p in CONFIG_A.plans)
+
+
 def test_every_segment_and_plan_is_reachable() -> None:
     assert all(s.share > 0 for s in CONFIG_A.segments.values())
     assert all(p.share > 0 for p in CONFIG_A.plans)

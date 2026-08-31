@@ -158,13 +158,28 @@ A simulator you wrote is a world you can rig. Five defences, stated before anyon
 5. **Hold out a regime.** Tune on config A, evaluate once on config B, report whatever
    comes out.
 
-### What is not yet verified
+### What calibration overturned
 
-Ten parameters are currently modelling choices asserted as facts, tracked in
-[`CALIBRATION.md`](CALIBRATION.md) and flagged `[VERIFY-P2]` in the code. Two carry real
-risk: the maximum debit attempts per mandate cycle, which is claimed as a network rule, and
-the per-contact churn hazard, on which the entire headline result rests. Anything still
-unsourced when Phase 2 closes gets relabelled `chosen` rather than quietly asserted.
+Phase 2 sourced every parameter and graded each `primary | secondary | chosen`
+(14% / 67% / 19%). It broke four Phase 0 assertions:
+
+| Asserted | The record says |
+|---|---|
+| 3 debits per mandate cycle is a network rule | India caps **no** retries per cycle; networks cap 10 (MC) / 15 (Visa) per **30 days** |
+| Retry after 4 hours | Every retry needs a fresh **24h** pre-debit notification — 4h is non-compliant |
+| `afa_timeout` is an auth timeout | AFA applies only **above ₹15,000**; the plan ladder tops out at ₹4,999, so it was unreachable |
+| Both rails fail alike | UPI Autopay **8–15%**, card mandates **2–3%** |
+
+The second mattered most: Phase 0 would have produced an agent whose optimal strategy was
+illegal. It also changes the problem's shape — attempts are rate-limited to one per 24
+hours, so the **expiry horizon binds rather than the attempt budget**, which makes the
+finite-horizon decision in Phase 7 more load-bearing, not less.
+
+**One parameter remains unsourceable and it is the one the result rests on.** No public
+measurement exists of the incremental churn caused by the *k*-th dunning contact — the
+industry publishes what dunning *recovers* and never what it *costs*. That asymmetry is
+itself the point this project makes. The parameter is defended by the Phase 8 sensitivity
+sweep rather than by a citation.
 
 ## Scope
 

@@ -4,9 +4,14 @@
     "max_posterior_mass_per_code": 0.7,
     "min_conditional_entropy_bits": 1.4
   },
+  "base_failure_rate_by_rail": {
+    "card_mandate": 0.025,
+    "upi_autopay": 0.115
+  },
   "bd_share_target": 0.78,
   "bd_share_tolerance": 0.02,
   "bounds": {
+    "afa_threshold_inr": 15000.0,
     "card_expired_belief_threshold": 0.5,
     "card_expired_retry_limit": 1,
     "expiry_horizon_days_by_rail": {
@@ -16,7 +21,9 @@
     "max_attempts_per_transaction": 6,
     "max_contacts_per_transaction": 3,
     "max_debits_per_mandate_cycle": 3,
-    "min_inter_attempt_hours": 4.0,
+    "min_inter_attempt_hours": 24.0,
+    "network_retry_cap_per_30d": 10,
+    "pre_debit_notification_hours": 24.0,
     "retry_storm_max_per_bank_hour": 2
   },
   "causes": {

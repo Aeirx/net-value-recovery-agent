@@ -66,7 +66,14 @@ class Cause(StrEnum):
     CARD_EXPIRED = "card_expired"
     RISK_BLOCK = "risk_block"
     MANDATE_DEAD = "mandate_dead"
+
+    #: The authorisation step did not complete. Rescoped in Phase 2: above the
+    #: Rs 15,000 AFA threshold this is an authentication timeout, and below it — where no
+    #: AFA is required — it is the customer exercising the opt-out that the 2026 framework
+    #: attaches to every pre-debit notification. Phase 0 scoped this to AFA alone, which
+    #: would have made it impossible on a plan ladder topping out at Rs 4,999.
     AFA_TIMEOUT = "afa_timeout"
+
     BANK_OUTAGE = "bank_outage"
     ROUTE_DEGRADED = "route_degraded"
 
@@ -237,16 +244,54 @@ class Bounds(_Frozen):
 
     A model may not be the thing that enforces a cap: bounds you cannot verify are not
     bounds. Every gate logs when it fires.
+
+    Phase 2 separated these into two kinds, because conflating them was a real error:
+
+    * **Regulatory or network bounds** are external facts, sourced in ``CALIBRATION.md``.
+      ``min_inter_attempt_hours`` and ``network_retry_cap_per_30d`` are these.
+    * **Merchant-policy bounds** are ours to choose. ``max_debits_per_mandate_cycle`` is
+      one, and Phase 0 wrongly asserted it as a network rule. India's e-mandate framework
+      caps no such thing.
     """
 
     max_attempts_per_transaction: int = Field(gt=0)
     max_contacts_per_transaction: int = Field(gt=0)
+
+    #: Merchant policy, not a rule. [chosen] See CALIBRATION.md row 4.
     max_debits_per_mandate_cycle: int = Field(gt=0)
+
+    #: Binding network cap across a 30-day window. Mastercard is the stricter of the two
+    #: (10 vs Visa's 15), so it is the one that binds. [sourced]
+    network_retry_cap_per_30d: int = Field(gt=0)
+
+    #: RBI Digital Payments E-mandate Framework 2026: every retry must be preceded by a
+    #: fresh pre-debit notification at least 24h ahead, and no retry may occur inside 24h
+    #: of the failure. This is a hard regulatory floor, not a tuning knob. [sourced]
     min_inter_attempt_hours: NonNegative
+    pre_debit_notification_hours: NonNegative
+
+    #: Per-transaction value above which additional-factor authentication is required on
+    #: both rails. Below it, recurring debits proceed unauthenticated. [sourced]
+    afa_threshold_inr: NonNegative
+
     retry_storm_max_per_bank_hour: int = Field(gt=0)
     card_expired_retry_limit: int = Field(ge=0)
     card_expired_belief_threshold: Probability
     expiry_horizon_days_by_rail: dict[Rail, int]
+
+    @model_validator(mode="after")
+    def _check_regulatory_floor(self) -> Self:
+        if self.min_inter_attempt_hours < self.pre_debit_notification_hours:
+            raise ValueError(
+                "min_inter_attempt_hours cannot be shorter than the mandatory pre-debit "
+                "notification window: a retry inside it would be non-compliant"
+            )
+        if self.max_debits_per_mandate_cycle > self.network_retry_cap_per_30d:
+            raise ValueError(
+                "merchant policy allows more debits per cycle than the network permits "
+                "in 30 days"
+            )
+        return self
 
 
 class ClockConfig(_Frozen):
@@ -291,6 +336,13 @@ class WorldConfig(_Frozen):
     n_transactions: int = Field(gt=0)
 
     rail_shares: dict[Rail, Probability]
+
+    #: Share of scheduled debits that fail on each rail, before any recovery. Sourced in
+    #: Phase 2 and consumed by the Phase 3 generator. The gap is large and real: UPI
+    #: Autopay is stateless per debit while card mandates are bank-managed, so the two
+    #: rails must not share a failure profile. [sourced]
+    base_failure_rate_by_rail: dict[Rail, Probability]
+
     causes: dict[Cause, CauseSpec]
     code_given_cause: dict[Cause, dict[ErrorCode, Probability]]
     plans: tuple[PlanTier, ...]
@@ -355,6 +407,8 @@ class WorldConfig(_Frozen):
                 raise ValueError(f"rail {rail} has no expiry horizon")
             if rail not in self.costs.mdr_by_rail:
                 raise ValueError(f"rail {rail} has no MDR")
+            if rail not in self.base_failure_rate_by_rail:
+                raise ValueError(f"rail {rail} has no base failure rate")
         return self
 
     # ---------------------------------------------------------------- identity
@@ -497,6 +551,9 @@ def default_config_a() -> WorldConfig:
         n_transactions=400,
         # DECISION-001 [DESIGN]
         rail_shares={Rail.CARD_MANDATE: 0.65, Rail.UPI_AUTOPAY: 0.35},
+        # Midpoints of the published ranges: UPI Autopay 8-15%, card mandates 2-3%.
+        # [sourced] See CALIBRATION.md row 11.
+        base_failure_rate_by_rail={Rail.CARD_MANDATE: 0.025, Rail.UPI_AUTOPAY: 0.115},
         # DECISION-003, DECISION-004 [DESIGN], BD/TD target [VERIFY-P2]
         causes={
             Cause.INSUFFICIENT_FUNDS: CauseSpec(
@@ -658,16 +715,26 @@ def default_config_a() -> WorldConfig:
                 p_resolves_other_cause=0.05,
             ),
         ),
-        # DECISION-012 [DESIGN unless noted]
+        # DECISION-012, revised in Phase 2 against the sourced record.
         bounds=Bounds(
-            max_attempts_per_transaction=6,  # a ceiling, not a policy
-            max_contacts_per_transaction=3,
-            max_debits_per_mandate_cycle=3,  # [VERIFY-P2] claimed as a network rule
-            min_inter_attempt_hours=4.0,
-            retry_storm_max_per_bank_hour=2,
-            card_expired_retry_limit=1,
-            card_expired_belief_threshold=0.50,
-            expiry_horizon_days_by_rail={  # [VERIFY-P2]
+            max_attempts_per_transaction=6,  # a ceiling, not a policy [DESIGN]
+            max_contacts_per_transaction=3,  # [DESIGN]
+            # Phase 0 asserted this as a network rule. It is not: India's e-mandate
+            # framework caps no number of retries per cycle. Kept as merchant policy and
+            # relabelled [chosen]. See CALIBRATION.md row 4.
+            max_debits_per_mandate_cycle=3,
+            # Mastercard 10 / 30d is stricter than Visa's 15, so it binds. [sourced]
+            network_retry_cap_per_30d=10,
+            # Was 4.0. RBI's 2026 e-mandate framework requires a fresh pre-debit
+            # notification at least 24h before every attempt, so a 4h retry is not
+            # merely aggressive, it is non-compliant. [sourced]
+            min_inter_attempt_hours=24.0,
+            pre_debit_notification_hours=24.0,
+            afa_threshold_inr=15000.0,  # [sourced]
+            retry_storm_max_per_bank_hour=2,  # [DESIGN]
+            card_expired_retry_limit=1,  # [DESIGN]
+            card_expired_belief_threshold=0.50,  # [DESIGN]
+            expiry_horizon_days_by_rail={  # [chosen] — no published force-cancel rule found
                 Rail.CARD_MANDATE: 21,
                 Rail.UPI_AUTOPAY: 14,
             },

@@ -1,6 +1,8 @@
 # Phase 0 — Scope Lock and Economics
 
 **Status:** complete. Exit criterion satisfied (§9).
+**Revised 2026-08-31 by Phase 2 calibration** — four assertions here were overturned by the
+sourced record. Corrections are marked **[P2-CORRECTED]** inline; see `CALIBRATION.md`.
 **Code written:** none, by design.
 **Feeds:** `CLAUDE.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `world/config.py` (P1), `CALIBRATION.md` (P2).
 
@@ -251,6 +253,9 @@ Max-recovery destroys roughly ₹45k of value to recover ₹8.4k, and it books t
 ### 2. `retry_after(h)`, `h ∈ {4, 12, 24, 48, 72}`
 - **Cost** ₹0.60 · **Annoyance** none
 - **Latency** exactly `h` hours — world state may change in between, which is the point
+- **[P2-CORRECTED]** `h ∈ {24, 36, 48, 72, 120}`. The Phase 0 set `{4, 12, 24, 48, 72}` is
+  non-compliant: RBI's 2026 e-mandate framework requires a fresh pre-debit notification at
+  least 24h before **every** attempt, so a 4h or 12h retry cannot legally occur.
 - **Success** `P̂` evaluated at `t + h`
 - **Preconditions** `t + h < expiry` · attempt and cycle caps
 
@@ -295,11 +300,14 @@ Max-recovery destroys roughly ₹45k of value to recover ₹8.4k, and it books t
 |---|---|---|
 | `max_attempts_per_transaction` | 6 | [DESIGN] — a ceiling, not a policy. The agent chooses within it. |
 | `max_contacts_per_transaction` | 3 | [DESIGN] |
-| `max_debits_per_mandate_cycle` | 3 | **[VERIFY-P2]** — claimed as a network/regulatory rule. Verify or downgrade to [DESIGN]. |
-| `min_inter_attempt_hours` | 4 | [DESIGN] |
+| `max_debits_per_mandate_cycle` | 3 | **[P2-CORRECTED → chosen]** — asserted here as a network rule. It is not one: India caps no number of retries per cycle. Survives as merchant policy. |
+| `network_retry_cap_per_30d` | 10 | **[P2: sourced]** — Mastercard 10/30d binds; Visa allows 15. Added in Phase 2. |
+| `min_inter_attempt_hours` | ~~4~~ → **24** | **[P2-CORRECTED → sourced]** — a fresh pre-debit notification is required ≥24h before every attempt, so 4h was non-compliant. |
+| `pre_debit_notification_hours` | 24 | **[P2: sourced]** — RBI E-mandate Framework 2026. Added in Phase 2. |
+| `afa_threshold_inr` | 15,000 | **[P2: sourced]** — no AFA required below this. Added in Phase 2. |
 | `retry_storm_guard` | ≤2 attempts per `(bank_id, hour)` bucket across the whole batch | [DESIGN] — prevents hammering a bank during an outage |
 | `card_expired_retry_block` | ≤1 plain retry once `P(card_expired) > 0.50` | [DESIGN] |
-| `expiry_horizon` | 21d card / 14d UPI | [VERIFY-P2] |
+| `expiry_horizon` | 21d card / 14d UPI | **[P2: chosen]** — no published force-cancel rule found |
 
 These are deterministic for the same reason the economics are: **a model cannot be the thing that enforces a cap.** Every gate logs when it fires.
 
@@ -388,24 +396,33 @@ Note what makes the example valid: the ground truth is `card_expired`, so this a
 
 ---
 
-## 10. Open items carried into Phase 2
+## 10. Phase 2 resolution
 
-Every `[VERIFY-P2]` above, consolidated. **Any item still unverified at the end of P2 is relabelled `chosen` in `CALIBRATION.md`, not quietly asserted.** An admitted gap costs nothing; a mislabelled source costs everything.
+All ten open items were worked. Full sourcing, with grades and URLs, is in
+[`CALIBRATION.md`](CALIBRATION.md).
 
-| # | Claim | Rail | Risk if wrong |
-|---|---|---|---|
-| 1 | BD/TD split ≈ 78/22 | UPI | Moderate — reshapes cause priors |
-| 2 | UPI Autopay MDR = 0% | UPI | Low — but it drives rail-differential behaviour |
-| 3 | Card MDR ≈ 2.0% | Card | Low |
-| 4 | Max 3 debit attempts per mandate cycle | Both | **High — asserted as a regulatory rule** |
-| 5 | Mandate force-cancel at 21d / 14d | Both | Moderate — sets the DP horizon |
-| 6 | `p_involuntary_churn` = 0.55 | Both | **High — scales every `V_recover`** |
-| 7 | `Δchurn_k` schedule | Both | **Highest — the sensitivity sweep exists because of this one** |
-| 8 | Human agent cost ≈ ₹730/hr loaded | — | Low |
-| 9 | FY-end (31 Mar) decline spike is real | UPI | Moderate — config B leans on it |
-| 10 | `afa_timeout` counted as BD | Both | Low — record the caveat either way |
+| # | Claim | Outcome |
+|---|---|---|
+| 1 | BD/TD split ≈ 78/22 | **Kept.** OC-149 confirmed as a real circular (13 May 2022, TD <1%, BD <5%) with a primary source. |
+| 2 | UPI Autopay MDR = 0% | **Confirmed.** Currently zero; NPCI permits up to 0.30% P2M. |
+| 3 | Card MDR ≈ 2.0% | **Confirmed.** Domestic credit 1.5–2.5%, ~2% headline. |
+| 4 | Max 3 debits per mandate cycle | **WRONG.** India caps no retries per cycle. Relabelled merchant policy; sourced network cap of 10/30d added. |
+| 5 | Force-cancel at 21d / 14d | **Unsourced.** Relabelled `chosen`. |
+| 6 | `p_involuntary_churn` = 0.55 | **Anchored.** 30–50% of involuntary-churn customers reactivate, so 50–70% do not. 0.55 sits inside that band. |
+| 7 | `Δchurn` per contact | **Unsourceable.** No public measurement exists — the industry publishes what dunning recovers, never what it costs. Stays `chosen`; defended by the Phase 8 sweep, not by a citation. |
+| 8 | Human agent cost ≈ ₹730/hr | **Unsourced.** Relabelled `chosen`. |
+| 9 | FY-end decline spike | **Partial.** NPCI attributed a March outage to year-end rush, but no quantified seasonal effect. Stays `chosen`. |
+| 10 | `afa_timeout` counted as BD | **Rescoped.** AFA applies only above ₹15,000, and the plan ladder tops out at ₹4,999 — so as written the cause was unreachable. Now covers the pre-debit **opt-out** the 2026 framework attaches to every notification, which applies at any amount. |
 
-**Item 7 is the one the whole submission rests on.** It is also the one the Phase 8 sensitivity sweep is designed to neutralize: rather than defending a single churn schedule, the sweep reports net value across the full plausible range and marks where the policy stops dominating. Source it as well as possible, then show the reader you did not need them to believe the specific value.
+Two new sourced parameters entered the config from this work: `network_retry_cap_per_30d`
+and `base_failure_rate_by_rail` (UPI Autopay 8–15% against card mandates 2–3% — the rails
+must not share a failure profile).
+
+**The most consequential correction is #4/#2.** Together they mean the binding constraint on
+retrying is *temporal*, not a count: attempts are rate-limited to one per 24 hours by the
+notification requirement. That makes the expiry horizon — not the attempt budget — the thing
+that actually binds, which is a more interesting sequential decision problem than the one
+Phase 0 specified.
 
 ---
 

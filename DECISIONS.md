@@ -105,6 +105,63 @@ Full reasoning in [`PHASE0_DECISIONS.md`](PHASE0_DECISIONS.md); one-liners here.
 
 ---
 
+## Phase 2 — calibration · 2026-08-31
+
+Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
+
+- **022** · `min_inter_attempt_hours` raised 4 → 24, enforced by a validator. *RBI's 2026
+  e-mandate framework requires a fresh pre-debit notification at least 24h before every
+  attempt, so the Phase 0 value would have produced an agent whose optimal strategy was
+  illegal.* Would change only if the framework is amended — this is a regulatory floor,
+  not a tuning knob.
+
+- **023** · `max_debits_per_mandate_cycle = 3` relabelled from network rule to merchant
+  policy, and a genuine sourced cap added alongside it (`network_retry_cap_per_30d = 10`).
+  *India caps no number of retries per cycle; the card networks cap 10 (Mastercard) and 15
+  (Visa) per 30 days. Asserting a made-up number as a regulator's rule is worse than
+  admitting a choice.* Kept at 3 because the economics, not the cap, should be what stops
+  the agent.
+
+- **024** · Retry constraint is temporal, not a count. *This follows from 022 and 023 and
+  it changes the problem: attempts are rate-limited to one per 24h, so the expiry horizon
+  binds rather than the attempt budget.* Makes the finite-horizon DP in Phase 7 more
+  load-bearing, not less.
+
+- **025** · `afa_timeout` rescoped to include the pre-debit opt-out. *AFA is only required
+  above ₹15,000 and the plan ladder tops out at ₹4,999, so the cause as originally written
+  was physically unreachable in my own world.* The 2026 framework attaches an opt-out to
+  every pre-debit notification at any amount, which is a real and more common failure mode.
+
+- **026** · Added `base_failure_rate_by_rail` (card 2.5%, UPI 11.5%). *Published rates are
+  2–3% against 8–15%; UPI Autopay is stateless per debit while card mandates are
+  bank-managed. A world where both rails fail alike would erase a distinction the agent
+  should be exploiting.*
+
+- **027** · `p_involuntary_churn` kept at 0.55, now anchored rather than invented. *30–50%
+  of involuntary-churn customers reactivate unaided, so 50–70% do not; 0.55 sits inside
+  that band toward the optimistic end.* Would move if a subscription-specific figure
+  surfaces.
+
+- **028** · `card_expired` prior kept at 0.12 despite a conflicting 25–30% figure. *The 12%
+  source is subscription-specific; the higher one is general card decline data. The
+  conflict is recorded in CALIBRATION.md rather than resolved, so a reviewer who knows the
+  higher number can see it was considered.*
+
+- **029** · The merchant-side UPI failure mix is deliberately **not** used to set the BD/TD
+  split. *It measures merchant-observed failures rather than NPCI's BD/TD classification,
+  and taken naively implies TD near 50% against a published ~0.8%. Two different quantities
+  wearing similar labels is exactly the trap the calibration file exists to prevent.*
+
+- **030** · Sources graded `primary | secondary | chosen` rather than cited flatly. *Most of
+  the economics comes from vendor benchmark posts, which are real data but self-published;
+  presenting those at the same weight as an NPCI circular would overstate the ground I
+  actually stand on.* 14% primary, 67% secondary, 19% chosen.
+
+- **031** · Per-bank technical decline left `chosen`. *The NPCI BD/TD page returns HTTP 403
+  to automated fetches. The spread is built into the world regardless, but the specific
+  numbers are invented and are labelled so.* Upgrade by pulling the page manually before
+  the video.
+
 ## Template for later phases
 
 ```
