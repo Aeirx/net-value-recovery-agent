@@ -1,0 +1,7 @@
+# Normalise to LF in the repository so the same bytes reach Windows and CI.
+# The config staleness check in CI diffs a generated file, and line-ending drift
+# would fail it for the wrong reason.
+* text=auto eol=lf
+
+*.png  binary
+*.sqlite binary

@@ -369,9 +369,17 @@ class WorldConfig(_Frozen):
         return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
 
     def write_json(self, path: str | Path) -> str:
+        """Write the published config.
+
+        The newline is pinned to ``\\n`` deliberately: with the platform default this file
+        picks up CRLF on Windows and LF in CI, and the "config is committed and current"
+        CI check would then fail on line endings rather than on a real parameter drift.
+        """
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(self.model_dump(mode="json"), indent=2, sort_keys=True) + "\n")
+        body = json.dumps(self.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
+        with p.open("w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
         return self.config_hash()
 
     @classmethod
