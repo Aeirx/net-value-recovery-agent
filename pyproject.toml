@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netvalue"
+version = "0.1.0"
+description = "Net-value payment recovery agent — optimises recovered value net of customer cost, not success rate."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+    "anthropic>=0.40",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[tool.setuptools.packages.find]
+include = ["netvalue*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "phase3: enabled when Phase 3 (world and datasets) lands",
+    "phase4: enabled when Phase 4 (harness and baselines) lands",
+    "phase5: enabled when Phase 5 (estimator) lands",
+    "phase6: enabled when Phase 6 (diagnosis) lands",
+    "phase7: enabled when Phase 7 (value engine) lands",
+    "slow: excluded from the CI smoke run",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+disallow_untyped_defs = true
+# Strictness is enforced on the two packages whose correctness the thesis depends on.
+files = ["netvalue/world", "netvalue/agent"]
+
+[[tool.mypy.overrides]]
+module = ["matplotlib.*", "anthropic.*"]
+ignore_missing_imports = true

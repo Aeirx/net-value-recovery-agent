@@ -1,0 +1,311 @@
+{
+  "ambiguity": {
+    "max_mutual_information_bits": 1.0,
+    "max_posterior_mass_per_code": 0.7,
+    "min_conditional_entropy_bits": 1.4
+  },
+  "bd_share_target": 0.78,
+  "bd_share_tolerance": 0.02,
+  "bounds": {
+    "card_expired_belief_threshold": 0.5,
+    "card_expired_retry_limit": 1,
+    "expiry_horizon_days_by_rail": {
+      "card_mandate": 21,
+      "upi_autopay": 14
+    },
+    "max_attempts_per_transaction": 6,
+    "max_contacts_per_transaction": 3,
+    "max_debits_per_mandate_cycle": 3,
+    "min_inter_attempt_hours": 4.0,
+    "retry_storm_max_per_bank_hour": 2
+  },
+  "causes": {
+    "afa_timeout": {
+      "decline_class": "business_decline",
+      "permanently_unrecoverable": false,
+      "prior": 0.15,
+      "rails": [
+        "card_mandate",
+        "upi_autopay"
+      ],
+      "recoverable_by_retry": true
+    },
+    "bank_outage": {
+      "decline_class": "technical_decline",
+      "permanently_unrecoverable": false,
+      "prior": 0.11,
+      "rails": [
+        "card_mandate",
+        "upi_autopay"
+      ],
+      "recoverable_by_retry": true
+    },
+    "card_expired": {
+      "decline_class": "business_decline",
+      "permanently_unrecoverable": false,
+      "prior": 0.12,
+      "rails": [
+        "card_mandate"
+      ],
+      "recoverable_by_retry": false
+    },
+    "insufficient_funds": {
+      "decline_class": "business_decline",
+      "permanently_unrecoverable": false,
+      "prior": 0.34,
+      "rails": [
+        "card_mandate",
+        "upi_autopay"
+      ],
+      "recoverable_by_retry": true
+    },
+    "mandate_dead": {
+      "decline_class": "business_decline",
+      "permanently_unrecoverable": true,
+      "prior": 0.07,
+      "rails": [
+        "card_mandate",
+        "upi_autopay"
+      ],
+      "recoverable_by_retry": false
+    },
+    "risk_block": {
+      "decline_class": "business_decline",
+      "permanently_unrecoverable": false,
+      "prior": 0.1,
+      "rails": [
+        "card_mandate",
+        "upi_autopay"
+      ],
+      "recoverable_by_retry": false
+    },
+    "route_degraded": {
+      "decline_class": "technical_decline",
+      "permanently_unrecoverable": false,
+      "prior": 0.11,
+      "rails": [
+        "card_mandate"
+      ],
+      "recoverable_by_retry": true
+    }
+  },
+  "clock": {
+    "end": "2026-04-05T00:00:00",
+    "start": "2026-03-05T00:00:00",
+    "tick_hours": 1,
+    "timezone": "Asia/Kolkata"
+  },
+  "code_given_cause": {
+    "afa_timeout": {
+      "GW_05": 0.1,
+      "GW_11": 0.03,
+      "GW_21": 0.02,
+      "GW_33": 0.7,
+      "GW_54": 0.13,
+      "GW_91": 0.02
+    },
+    "bank_outage": {
+      "GW_05": 0.12,
+      "GW_11": 0.03,
+      "GW_21": 0.01,
+      "GW_33": 0.06,
+      "GW_54": 0.3,
+      "GW_91": 0.48
+    },
+    "card_expired": {
+      "GW_05": 0.3,
+      "GW_11": 0.05,
+      "GW_21": 0.55,
+      "GW_33": 0.0,
+      "GW_54": 0.05,
+      "GW_91": 0.05
+    },
+    "insufficient_funds": {
+      "GW_05": 0.58,
+      "GW_11": 0.19,
+      "GW_21": 0.02,
+      "GW_33": 0.06,
+      "GW_54": 0.05,
+      "GW_91": 0.1
+    },
+    "mandate_dead": {
+      "GW_05": 0.2,
+      "GW_11": 0.08,
+      "GW_21": 0.6,
+      "GW_33": 0.0,
+      "GW_54": 0.05,
+      "GW_91": 0.07
+    },
+    "risk_block": {
+      "GW_05": 0.32,
+      "GW_11": 0.44,
+      "GW_21": 0.04,
+      "GW_33": 0.12,
+      "GW_54": 0.04,
+      "GW_91": 0.04
+    },
+    "route_degraded": {
+      "GW_05": 0.15,
+      "GW_11": 0.05,
+      "GW_21": 0.02,
+      "GW_33": 0.08,
+      "GW_54": 0.5,
+      "GW_91": 0.2
+    }
+  },
+  "costs": {
+    "annoyance": {
+      "delta_churn_beyond": 0.14,
+      "delta_churn_by_contact": [
+        0.008,
+        0.025,
+        0.07
+      ]
+    },
+    "card_update": {
+      "p_success_given_response": 0.94,
+      "repeat_response_decay": [
+        1.0,
+        0.58,
+        0.42
+      ],
+      "response_delay_median_hours": 26.0
+    },
+    "escalation": {
+      "p_resolves_other_cause": 0.05,
+      "p_resolves_risk_block": 0.72,
+      "queue_delay_median_hours": 9.0
+    },
+    "interventions": {
+      "abandon": {
+        "consumes_contact": false,
+        "flat_cost_inr": 0.0,
+        "latency_hours_median": null,
+        "max_uses_per_transaction": null,
+        "rails": [
+          "card_mandate",
+          "upi_autopay"
+        ]
+      },
+      "escalate_to_human": {
+        "consumes_contact": true,
+        "flat_cost_inr": 85.0,
+        "latency_hours_median": 9.0,
+        "max_uses_per_transaction": 1,
+        "rails": [
+          "card_mandate",
+          "upi_autopay"
+        ]
+      },
+      "request_card_update": {
+        "consumes_contact": true,
+        "flat_cost_inr": 0.6,
+        "latency_hours_median": 26.0,
+        "max_uses_per_transaction": 3,
+        "rails": [
+          "card_mandate"
+        ]
+      },
+      "retry_after": {
+        "consumes_contact": false,
+        "flat_cost_inr": 0.6,
+        "latency_hours_median": null,
+        "max_uses_per_transaction": null,
+        "rails": [
+          "card_mandate",
+          "upi_autopay"
+        ]
+      },
+      "retry_now": {
+        "consumes_contact": false,
+        "flat_cost_inr": 0.6,
+        "latency_hours_median": 0.0,
+        "max_uses_per_transaction": null,
+        "rails": [
+          "card_mandate",
+          "upi_autopay"
+        ]
+      },
+      "schedule_retry_at": {
+        "consumes_contact": false,
+        "flat_cost_inr": 0.6,
+        "latency_hours_median": null,
+        "max_uses_per_transaction": null,
+        "rails": [
+          "card_mandate",
+          "upi_autopay"
+        ]
+      },
+      "switch_route_and_retry": {
+        "consumes_contact": false,
+        "flat_cost_inr": 0.9,
+        "latency_hours_median": 0.0,
+        "max_uses_per_transaction": 2,
+        "rails": [
+          "card_mandate"
+        ]
+      }
+    },
+    "mdr_by_rail": {
+      "card_mandate": 0.02,
+      "upi_autopay": 0.0
+    },
+    "p_involuntary_churn": 0.55
+  },
+  "n_transactions": 400,
+  "name": "config_a",
+  "plans": [
+    {
+      "amount_inr": 99.0,
+      "name": "basic",
+      "share": 0.42
+    },
+    {
+      "amount_inr": 149.0,
+      "name": "standard",
+      "share": 0.23
+    },
+    {
+      "amount_inr": 299.0,
+      "name": "plus",
+      "share": 0.18
+    },
+    {
+      "amount_inr": 599.0,
+      "name": "premium",
+      "share": 0.11
+    },
+    {
+      "amount_inr": 1499.0,
+      "name": "annual_lite",
+      "share": 0.04
+    },
+    {
+      "amount_inr": 4999.0,
+      "name": "annual_pro",
+      "share": 0.02
+    }
+  ],
+  "rail_shares": {
+    "card_mandate": 0.65,
+    "upi_autopay": 0.35
+  },
+  "seed": 20260831,
+  "segments": {
+    "dormant": {
+      "contact_response_prob": 0.06,
+      "expected_remaining_cycles": 4.0,
+      "share": 0.2
+    },
+    "engaged": {
+      "contact_response_prob": 0.42,
+      "expected_remaining_cycles": 14.0,
+      "share": 0.45
+    },
+    "lapsed": {
+      "contact_response_prob": 0.18,
+      "expected_remaining_cycles": 7.0,
+      "share": 0.35
+    }
+  }
+}

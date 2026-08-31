@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: python -m ruff check netvalue tests scripts
+
+      - name: Typecheck
+        run: python -m mypy
+
+      - name: Test
+        run: python -m pytest -q
+
+      # Run separately and verbosely so the boundary guard is visible in the CI log as its
+      # own step. It is the test that backs the project's central credibility claim: the
+      # agent estimates the world's physics and never reads them.
+      - name: Boundary guard (agent must never import world)
+        run: python -m pytest tests/test_boundary.py -v
+
+      - name: Smoke evaluation
+        run: python scripts/smoke_eval.py --n 50
+
+      - name: Config is committed and current
+        run: |
+          python scripts/write_config.py
+          git diff --exit-code data/config_a.json \
+            || (echo "::error::data/config_a.json is stale — run 'make config' and commit" && exit 1)
