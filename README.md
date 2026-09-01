@@ -8,10 +8,44 @@ recovering.
 > max-recovery policy and produces *more net value*, reported side by side with confidence
 > intervals.
 
-**Status: Phase 4 of 9 complete.** The world is frozen and the scoreboard is built. All
-four baselines run with paired confidence intervals — deliberately *before* the agent
-exists, so the agent iterates against real numbers rather than impressions. The estimator,
-diagnosis, value engine and evidence package land in Phases 5–8.
+**Status: Phase 5 of 9 complete.** The world is frozen, the scoreboard is built, and the
+agent now has its only source of physics: a recovery estimator fitted on the historical
+log and validated for calibration. Diagnosis, the value engine and the evidence package
+land in Phases 6–8.
+
+## The estimator — the agent learns the physics, it does not read them
+
+The value engine needs `P(success | action)`. It must not get that from the simulator —
+then agent and world would share one model and the agent would win by construction. So it
+gets what a real payments team has: a log of what a previous, unintelligent system did and
+what happened (`history.jsonl`, 6,172 actions, **no cause field**), and it estimates from
+that.
+
+A hierarchical beta-binomial along a six-rung backoff ladder, from a nine-feature cell
+down to the global rate; sparse cells borrow strength from coarser ones, weighted by
+κ=20 pseudo-observations chosen by validation log-loss. Validated on a held-out quarter of
+the log, split by transaction:
+
+| Model | Brier ↓ | Log-loss ↓ | ECE ↓ |
+|---|---:|---:|---:|
+| Global rate | 0.1605 | 0.5021 | 0.0216 |
+| Per-intervention rate | 0.1559 | 0.4822 | 0.0225 |
+| **Estimator** | **0.1274** | **0.3989** | **0.0328** |
+
+**Calibration is the gate, not accuracy.** The value engine multiplies these probabilities
+by rupees, so an estimator that says 70% and is right 50% of the time makes the agent
+spend money it should not — and no accuracy metric would show it. ECE ≤ 0.05 and
+Brier-beats-the-base-rate are enforced by the fit script, by a test, and by CI on every
+push.
+
+Two things the estimator demonstrably *learned* rather than was told: that a debit is
+likelier to clear near payday, and that retries decay with attempt number. Both are
+asserted by tests, and neither number exists in any file the agent can read.
+
+It is **cause-agnostic by design** — the log never knew why a payment failed, so neither
+can the estimator. That is the situation every real dunning team is in. It also means the
+Phase 7 belief update cannot get `P(fail | cause, action)` from here; it will come from the
+diagnoser's own model.
 
 ## The scoreboard, before the agent exists
 

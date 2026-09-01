@@ -14,6 +14,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from netvalue.agent.calibration import base_rate, brier_score, expected_calibration_error
+from netvalue.agent.estimator import RecoveryEstimator, _read_jsonl, split_by_transaction
+from netvalue.agent.features import from_history_row
 from netvalue.eval.metrics import summarise
 from netvalue.eval.runner import EpisodeRunner
 from netvalue.policies.max_recovery import (
@@ -122,6 +125,33 @@ def check_harness(cfg: WorldConfig, n: int) -> list[str]:
     return failures
 
 
+def check_estimator() -> list[str]:
+    """Fit on the frozen log and confirm the estimator is still fit to price with.
+
+    The value engine multiplies these probabilities by rupees, so an uncalibrated
+    estimator makes the agent spend money it should not while every downstream number
+    still looks plausible. Cheap enough to run on every push.
+    """
+    path = Path(__file__).resolve().parent.parent / "data" / "history.jsonl"
+    if not path.exists():
+        print("estimator         skipped (no history)")
+        return []
+    train, valid = split_by_transaction(_read_jsonl(path))
+    est = RecoveryEstimator(20.0).fit(train)
+    labels = [bool(r["succeeded"]) for r in valid]
+    preds = [est.predict(from_history_row(r)).p for r in valid]
+    constant = [base_rate([bool(r["succeeded"]) for r in train])] * len(valid)
+    brier, brier0 = brier_score(preds, labels), brier_score(constant, labels)
+    ece = expected_calibration_error(preds, labels)
+    print(f"estimator         brier {brier:.4f} (global {brier0:.4f})  ece {ece:.4f}")
+    failures: list[str] = []
+    if brier >= brier0:
+        failures.append("estimator does not beat the global rate")
+    if ece > 0.05:
+        failures.append(f"estimator ECE {ece:.4f} exceeds 0.05")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--n", type=int, default=50, help="transactions once Phase 3 lands")
@@ -133,9 +163,11 @@ def main() -> int:
     failures = check_config(CONFIG_A)
     failures += check_world(CONFIG_A, args.n)
     failures += check_harness(CONFIG_A, args.n)
+    failures += check_estimator()
 
-    # Phase 5+ stages append here: estimator -> diagnosis -> agent -> report.
-    print("stages            config [ok]  world [ok]  harness [ok]  agent [phase 7]")
+    # Phase 6+ stages append here: diagnosis -> agent -> report.
+    print("stages            config [ok]  world [ok]  harness [ok]  estimator [ok]  "
+          "agent [phase 7]")
 
     if failures:
         print("\nFAILED")

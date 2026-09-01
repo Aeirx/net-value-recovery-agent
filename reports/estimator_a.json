@@ -1,0 +1,142 @@
+{
+  "backoff_depth_histogram": {
+    "0": 967,
+    "1": 491,
+    "2": 31
+  },
+  "estimator": {
+    "cells_per_level": [
+      2433,
+      528,
+      90,
+      30,
+      5,
+      1
+    ],
+    "interventions": [
+      "escalate_to_human",
+      "request_card_update",
+      "retry_after",
+      "retry_now",
+      "switch_route_and_retry"
+    ],
+    "levels": [
+      [
+        "intervention",
+        "error_code",
+        "attempt",
+        "salary",
+        "late",
+        "responsiveness",
+        "expiry_past",
+        "rail",
+        "segment"
+      ],
+      [
+        "intervention",
+        "error_code",
+        "attempt",
+        "salary",
+        "late",
+        "expiry_past"
+      ],
+      [
+        "intervention",
+        "error_code",
+        "attempt"
+      ],
+      [
+        "intervention",
+        "error_code"
+      ],
+      [
+        "intervention"
+      ],
+      []
+    ],
+    "rows": 4683,
+    "shrinkage": 20.0
+  },
+  "history_rows": 6172,
+  "reliability": [
+    {
+      "high": 0.1,
+      "low": 0.0,
+      "n": 615,
+      "observed": 0.052,
+      "predicted": 0.0408
+    },
+    {
+      "high": 0.2,
+      "low": 0.1,
+      "n": 307,
+      "observed": 0.1075,
+      "predicted": 0.1464
+    },
+    {
+      "high": 0.3,
+      "low": 0.2,
+      "n": 195,
+      "observed": 0.2615,
+      "predicted": 0.2443
+    },
+    {
+      "high": 0.4,
+      "low": 0.3,
+      "n": 148,
+      "observed": 0.3851,
+      "predicted": 0.3528
+    },
+    {
+      "high": 0.5,
+      "low": 0.4,
+      "n": 149,
+      "observed": 0.5705,
+      "predicted": 0.4371
+    },
+    {
+      "high": 0.6,
+      "low": 0.5,
+      "n": 68,
+      "observed": 0.5441,
+      "predicted": 0.5358
+    },
+    {
+      "high": 0.7,
+      "low": 0.6,
+      "n": 7,
+      "observed": 0.4286,
+      "predicted": 0.6178
+    }
+  ],
+  "scores": {
+    "estimator": {
+      "brier": 0.12742,
+      "ece": 0.03276,
+      "log_loss": 0.39893
+    },
+    "global_rate": {
+      "brier": 0.16055,
+      "ece": 0.02162,
+      "log_loss": 0.50213
+    },
+    "per_intervention": {
+      "brier": 0.15585,
+      "ece": 0.02253,
+      "log_loss": 0.48222
+    }
+  },
+  "shrinkage": 20.0,
+  "shrinkage_curve": {
+    "10.0": 0.40134,
+    "160.0": 0.42569,
+    "2.0": 0.43858,
+    "20.0": 0.39893,
+    "40.0": 0.40269,
+    "5.0": 0.41111,
+    "80.0": 0.4119
+  },
+  "train_rows": 4683,
+  "validation_rows": 1489,
+  "validation_share": 0.25
+}

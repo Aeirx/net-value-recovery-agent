@@ -287,6 +287,55 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   be able to check a headline claim without installing and running the project; the derived
   artefacts regenerate deterministically and would only add churn.*
 
+## Phase 5 — the estimator · 2026-09-02
+
+- **056** · The estimator is **cause-agnostic**, on purpose. *`history.jsonl` records
+  observables, the action and the outcome — never why the payment failed, because the
+  historical system never knew. So it learns `P(success | observables, action)` and nothing
+  finer.* This is the situation every real dunning team is in, not a shortcut. Consequence
+  for Phase 7: the belief update cannot get `P(fail | cause, action)` from here; it has to
+  come from the diagnoser's own model. Recorded now so it is not rediscovered on Thursday.
+
+- **057** · Hierarchical beta-binomial along a six-rung backoff ladder, κ chosen by
+  validation log-loss. *The full feature cross-product has far more cells than the log has
+  rows; rather than pick one resolution and eat either bias or noise, every rung borrows
+  strength from the one above and the data decides how far down it can support.* κ=20 won
+  on a grid from 2 to 160; the whole curve is in `reports/estimator_a.json` so the choice is
+  auditable.
+
+- **058** · An empty rung resets effective sample size to κ, not to the parent's count.
+  *A cell with no data inherits its parent's mean but not its parent's certainty — it is
+  only κ-confident that this specific cell behaves like the coarser one. That is a
+  cell-heterogeneity prior, and it is what makes an unseen code report a wider interval.*
+
+- **059** · The global rung takes the flat root prior directly, not κ pseudo-observations
+  toward 0.5. *A unit test with a 101-row log and κ=200 read 0.25 where the data said
+  0.21: every rung was inheriting a rate pulled toward a coin flip. Negligible at 6,172
+  rows and κ=20, wrong in principle, and now fixed.*
+
+- **060** · `days_to_salary` is a feature; the *size* of the payday effect is not. *Distance
+  to the 1st or 7th is calendar arithmetic over public payroll dates, computed by any real
+  dunning team. How much likelier a debit clears on payday is learned from outcomes — and a
+  test asserts the estimator did learn it.* The calendar code is duplicated in `agent/`
+  rather than imported from `world/`, so the boundary holds even for public knowledge.
+
+- **061** · Train/validation split is by **transaction**, not by row. *Attempt 1 and
+  attempt 2 of the same transaction are not independent; splitting rows would leak.*
+
+- **062** · Calibration is the gate, not accuracy. *The value engine multiplies these
+  probabilities by rupees; an estimator that says 70% and is right 50% of the time makes
+  the agent spend money it should not, and no accuracy figure would reveal it.* Brier must
+  beat the global rate and ECE must stay ≤ 0.05 — enforced by `fit_estimator.py`, by
+  `tests/test_estimator.py`, and by the CI smoke run.
+
+- **063** · `GW_99` added to the agent-side `ObservedErrorCode`. *Phase 3 added it to the
+  world's enum only. Every config B transaction carrying the unseen code would have crashed
+  the projection to an observation, killing Friday's held-out run before the agent made a
+  single decision. The estimator's backoff test caught it.*
+
+- **064** · Calibration metrics live under `agent/`, not `eval/`. *`eval/` already imports
+  `agent/`; the reverse edge would make a cycle. The metrics depend on nothing but numbers.*
+
 ## Template for later phases
 
 ```

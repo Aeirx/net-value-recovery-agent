@@ -36,6 +36,12 @@ class ObservedErrorCode(StrEnum):
     GW_54 = "GW_54"
     GW_91 = "GW_91"
 
+    #: A code the tuning regime never emits. The agent's vocabulary has to admit it, or
+    #: the first config B transaction that carries it crashes the projection to an
+    #: observation and the held-out run dies before the agent makes a single decision.
+    #: Phase 5's estimator test caught exactly that.
+    GW_99 = "GW_99"
+
 
 class ObservedSegment(StrEnum):
     ENGAGED = "engaged"
