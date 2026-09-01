@@ -1,4 +1,4 @@
-# CLAUDE.md — working rules for this repository
+# Engineering rules for this repository
 
 ## What this is
 

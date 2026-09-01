@@ -13,3 +13,7 @@ dist/
 # drops the derived images and pages. Excluding the directory here would override that:
 # git cannot re-include a file whose parent directory is excluded.
 data/llm_cache.sqlite
+
+# Local agent pointer. The rules themselves live in ENGINEERING_RULES.md, which is
+# tracked; this file exists only so tooling picks them up and is deliberately private.
+CLAUDE.md

@@ -199,7 +199,7 @@ tests/               boundary, ambiguity, economics, config (live) + phase-gated
 | [`PHASE0_DECISIONS.md`](PHASE0_DECISIONS.md) | Every economic and structural parameter, with its reasoning |
 | [`DECISIONS.md`](DECISIONS.md) | One line per choice, with what would change my mind |
 | [`CALIBRATION.md`](CALIBRATION.md) | Sourcing plan, per rail, with a `sourced \| chosen` flag on every row |
-| [`CLAUDE.md`](CLAUDE.md) | Working rules, including the two that override everything else |
+| [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) | Working rules, including the two that override everything else |
 | [`razorpay-buildathon-plan_phases.md`](razorpay-buildathon-plan_phases.md) | The ten-phase build plan |
 
 ## Honesty

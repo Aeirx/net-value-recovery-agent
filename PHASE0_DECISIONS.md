@@ -4,7 +4,7 @@
 **Revised 2026-08-31 by Phase 2 calibration** — four assertions here were overturned by the
 sourced record. Corrections are marked **[P2-CORRECTED]** inline; see `CALIBRATION.md`.
 **Code written:** none, by design.
-**Feeds:** `CLAUDE.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `world/config.py` (P1), `CALIBRATION.md` (P2).
+**Feeds:** `ENGINEERING_RULES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `world/config.py` (P1), `CALIBRATION.md` (P2).
 
 Every number below is one of three kinds, flagged inline:
 

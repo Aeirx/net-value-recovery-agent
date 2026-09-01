@@ -180,7 +180,7 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
 
 - **034** · Fixed the breach by cutting `P(GW_33 | afa_timeout)` 0.70 → 0.60 rather than
   raising the ceiling. *The 70% constraint predates the measurement; moving it to fit the
-  world would be exactly the "weaken a test to get green" failure `CLAUDE.md` forbids.*
+  world would be exactly the "weaken a test to get green" failure `ENGINEERING_RULES.md` forbids.*
   Freed mass went to `GW_05` and `GW_54`, which an incomplete authorisation plausibly
   surfaces as. Max mass is now 64.0%.
 
