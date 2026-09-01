@@ -190,7 +190,21 @@ class WorldHealth:
         return ROUTES[1] if route == ROUTES[0] else ROUTES[0]
 
 
-def build_world_health(cfg: WorldConfig) -> WorldHealth:
+def build_world_health(cfg: WorldConfig, replication: int = 0) -> WorldHealth:
+    """Realise one world's outage timeline.
+
+    ``replication`` shifts the whole timeline, so each replication is a genuinely
+    different world rather than the same outages with different coin flips. Every
+    policy evaluated at the same replication index sees the identical timeline, which
+    is what makes the comparison paired.
+
+    **Replication 0 is the canonical world** — the one frozen in ``data/``. It is a
+    deliberate no-op so the committed datasets stay byte-reproducible.
+    """
+    if replication:
+        cfg = cfg.model_copy(
+            update={"seed": rng.derive_seed(cfg.seed, "health", replication) % (2**31)}
+        )
     bank_windows: list[Window] = []
     for bank in BANKS:
         bank_windows.extend(

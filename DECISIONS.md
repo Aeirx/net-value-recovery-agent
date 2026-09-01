@@ -234,6 +234,59 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   *The freeze needs a mechanism, not just a rule in a document — the failure mode is
   regenerating absent-mindedly on a Thursday.*
 
+## Phase 4 — harness and baselines · 2026-09-01
+
+- **045** · A replication is a whole different **world**, not the same world with different
+  coin flips. *Varying only the outcome draws would understate variance, because the outage
+  timeline is itself a random object the result depends on.* Replication 0 is the canonical
+  world — the one frozen in `data/` — so the committed artefacts stay byte-reproducible.
+
+- **046** · Compliance is enforced by the **environment**, not trusted to the policy. *A
+  gateway rejects a non-compliant retry regardless of what the merchant intended, and
+  modelling it that way lets the harness measure how often a policy proposes something it
+  is not allowed to do.* Gate fires are a reported metric.
+
+- **047** · `retry_now` is **inexpressible** on these rails and the runner clamps it. *This
+  is a consequence of the Phase 2 finding, not a limitation: every debit needs 24h of
+  pre-debit notice, so an instant retry cannot legally occur.* Recorded because it looks
+  like a bug and is not.
+
+- **048** · The cycle cap counts debits **the recovery system initiates**, excluding the
+  original failure. *Counting the original silently reduced a 3-retry merchant policy to 2
+  and left the naive baseline unable to express the very behaviour it exists to represent.*
+
+- **049** · **The max-recovery ceiling was making zero customer contacts** — found on the
+  first end-to-end run. *The cycle cap terminated episodes before any contact, so the
+  "ceiling" incurred no annoyance cost at all and the thesis would have had nothing to
+  trade against. Every number still looked plausible.* Fixed by having the policy respect
+  the binding cap and move on to contacts; `tests/test_harness.py` and the CI smoke run now
+  both assert the ceiling spends on contacts.
+
+- **050** · Oracle baselines receive ground truth by **explicit injection**, never through
+  the `Policy` protocol. *The protocol stays identical for every policy, so the harness
+  cannot tell an oracle from the agent and cannot accidentally advantage either.*
+
+- **051** · Baseline 3 knows *which* transactions are recoverable; baseline 3b knows *why*
+  they failed. *The gap between them is the headroom a perfect diagnoser would buy, which
+  is the number Phase 8's ablation needs and cannot otherwise obtain.*
+
+- **052** · The bootstrap clusters on the **transaction** and resamples the **paired
+  delta**. *Replications of one transaction are correlated, so resampling episodes would
+  understate variance; and differencing before resampling removes the world variance both
+  policies share instead of accumulating it twice.*
+
+- **053** · Win rate is reported beside the mean delta. *A mean can be carried by a handful
+  of large transactions while the policy is typically worse. Where the two disagree, that
+  disagreement is the finding.*
+
+- **054** · `mypy --strict` extended from `world/` + `agent/` to the whole package. *`eval/`
+  owns the ledger and the metrics; leaving it unchecked exempted the arithmetic behind the
+  headline figure from the strictest tool in the project.*
+
+- **055** · `reports/*.json` is committed while images and pages are not. *A reviewer should
+  be able to check a headline claim without installing and running the project; the derived
+  artefacts regenerate deterministically and would only add churn.*
+
 ## Template for later phases
 
 ```

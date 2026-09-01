@@ -8,7 +8,8 @@
 param(
     [Parameter(Position = 0)]
     [ValidateSet('help', 'install', 'test', 'lint', 'typecheck', 'check', 'smoke',
-                 'boundary', 'config', 'datasets', 'reproduce', 'clean')]
+                 'boundary', 'config', 'datasets', 'baselines',
+                 'reproduce', 'clean')]
     [string]$Target = 'help'
 )
 
@@ -32,6 +33,7 @@ switch ($Target) {
         Write-Host 'boundary   - run only the world/agent boundary guard'
         Write-Host 'config     - write data/config_a.json and print its hash'
         Write-Host 'datasets   - generate and freeze dataset_a, dataset_b and history'
+        Write-Host 'baselines  - run all four baselines with confidence intervals'
         Write-Host 'smoke      - 50-transaction end-to-end smoke evaluation'
         Write-Host 'reproduce  - regenerate every number in the README from scratch'
     }
@@ -42,6 +44,7 @@ switch ($Target) {
     'boundary'  { Invoke-Step 'boundary'  { & $py -m pytest tests/test_boundary.py -v } }
     'config'    { Invoke-Step 'config'    { & $py scripts/write_config.py } }
     'datasets'  { Invoke-Step 'datasets'  { & $py scripts/generate_datasets.py } }
+    'baselines' { Invoke-Step 'baselines' { & $py scripts/run_baselines.py --config a --replications 30 } }
     'smoke'     { Invoke-Step 'smoke'     { & $py scripts/smoke_eval.py --n 50 } }
     'check' {
         Invoke-Step 'ruff'   { & $py -m ruff check netvalue tests scripts }
@@ -52,7 +55,8 @@ switch ($Target) {
         Invoke-Step 'config' { & $py scripts/write_config.py }
         Invoke-Step 'pytest' { & $py -m pytest -q }
         Invoke-Step 'smoke'  { & $py scripts/smoke_eval.py --n 50 }
-        Write-Host '--- Phase 4+ stages append here (baselines, agent, sweeps, report)'
+        Invoke-Step 'baselines' { & $py scripts/run_baselines.py --config a --replications 30 }
+        Write-Host '--- Phase 5+ stages append here (estimator, diagnosis, agent, sweeps)'
     }
     'clean' {
         Get-ChildItem -Recurse -Directory -Filter __pycache__ |

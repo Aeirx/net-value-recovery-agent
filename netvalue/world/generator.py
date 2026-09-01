@@ -336,3 +336,12 @@ def read_jsonl(path: str | Path) -> Iterator[dict[str, object]]:
         for line in fh:
             if line.strip():
                 yield json.loads(line)
+
+
+def load_transactions(path: str | Path) -> list[Transaction]:
+    """Read a frozen dataset back into typed transactions.
+
+    Validation is not optional here: silently accepting a malformed row would let a
+    corrupted freeze produce plausible-looking numbers.
+    """
+    return [Transaction.model_validate(row) for row in read_jsonl(path)]

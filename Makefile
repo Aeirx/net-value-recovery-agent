@@ -1,6 +1,6 @@
 PY ?= python
 
-.PHONY: help install test lint typecheck check smoke boundary config datasets reproduce clean
+.PHONY: help install test lint typecheck check smoke boundary config datasets baselines reproduce clean
 
 help:
 	@echo "install    - install the package and dev dependencies"
@@ -11,6 +11,7 @@ help:
 	@echo "boundary   - run only the world/agent boundary guard"
 	@echo "config     - write data/config_a.json and print its hash"
 	@echo "datasets   - generate and freeze dataset_a, dataset_b and history"
+	@echo "baselines  - run all four baselines with confidence intervals"
 	@echo "smoke      - 50-transaction end-to-end smoke evaluation"
 	@echo "reproduce  - regenerate every number in the README from scratch"
 
@@ -37,6 +38,9 @@ config:
 datasets:
 	$(PY) scripts/generate_datasets.py
 
+baselines:
+	$(PY) scripts/run_baselines.py --config a --replications 30
+
 smoke:
 	$(PY) scripts/smoke_eval.py --n 50
 
@@ -47,7 +51,8 @@ smoke:
 reproduce: config
 	$(PY) -m pytest -q
 	$(PY) scripts/smoke_eval.py --n 50
-	@echo "--- Phase 4+ stages append here (baselines, agent, sweeps, report)"
+	$(PY) scripts/run_baselines.py --config a --replications 30
+	@echo "--- Phase 5+ stages append here (estimator, diagnosis, agent, sweeps)"
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache reports/*.png reports/*.md

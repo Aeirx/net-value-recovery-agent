@@ -14,6 +14,15 @@ import argparse
 import sys
 from pathlib import Path
 
+from netvalue.eval.metrics import summarise
+from netvalue.eval.runner import EpisodeRunner
+from netvalue.policies.max_recovery import (
+    MaxRecoveryOraclePolicy,
+    MaxRecoveryPolicy,
+    build_truth,
+)
+from netvalue.policies.naive import NaiveRetryPolicy
+from netvalue.policies.no_retry import NoRetryPolicy
 from netvalue.world.banks import build_world_health
 from netvalue.world.config import CONFIG_A, Cause, Rail, WorldConfig
 from netvalue.world.generator import generate_transactions
@@ -75,6 +84,44 @@ def check_world(cfg: WorldConfig, n: int) -> list[str]:
     return failures
 
 
+def check_harness(cfg: WorldConfig, n: int) -> list[str]:
+    """Run every baseline over a small population and check the scoreboard still holds.
+
+    Cheap enough for every push, and it catches the class of failure that matters most
+    here: a ceiling that quietly stops spending. When the max-recovery baseline made no
+    customer contacts it incurred no annoyance cost, which would have left the thesis
+    with nothing to trade against — and every number would still have looked plausible.
+    """
+    failures: list[str] = []
+    probe = cfg.model_copy(update={"n_transactions": n})
+    txns = generate_transactions(probe)
+    truth = build_truth(txns)
+    runner = EpisodeRunner(cfg, build_world_health(cfg), replication=0)
+
+    scores: dict[str, float] = {}
+    for policy in (
+        NoRetryPolicy(), NaiveRetryPolicy(),
+        MaxRecoveryPolicy(cfg, truth), MaxRecoveryOraclePolicy(cfg, truth),
+    ):
+        m = summarise(policy.name, runner.run(policy, txns))
+        scores[policy.name] = m.net_value_inr
+        if m.policy == "max_recovery":
+            if m.total_contacts == 0:
+                failures.append("the max-recovery ceiling made no contacts")
+            if m.annoyance_cost_inr <= 0.0:
+                failures.append("the max-recovery ceiling incurred no annoyance cost")
+
+    if scores["no_retry"] != 0.0:
+        failures.append("the no-retry floor is not exactly zero")
+    if scores["max_recovery"] <= scores["no_retry"]:
+        failures.append("the ceiling does not beat the floor")
+
+    ceiling = scores["max_recovery"]
+    print(f"baselines         floor 0  naive {scores['naive_retry']:,.0f}  "
+          f"ceiling {ceiling:,.0f}  oracle {scores['max_recovery_oracle']:,.0f}")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--n", type=int, default=50, help="transactions once Phase 3 lands")
@@ -85,10 +132,10 @@ def main() -> int:
 
     failures = check_config(CONFIG_A)
     failures += check_world(CONFIG_A, args.n)
+    failures += check_harness(CONFIG_A, args.n)
 
-    # Phase 4+ stages append here: run baselines -> run agent -> report.
-    print("stages            config [ok]  world [ok]  baselines [phase 4]  "
-          "agent [phase 7]")
+    # Phase 5+ stages append here: estimator -> diagnosis -> agent -> report.
+    print("stages            config [ok]  world [ok]  harness [ok]  agent [phase 7]")
 
     if failures:
         print("\nFAILED")

@@ -8,9 +8,31 @@ recovering.
 > max-recovery policy and produces *more net value*, reported side by side with confidence
 > intervals.
 
-**Status: Phase 3 of 9 complete.** Foundation, calibration and the frozen world are in
-place: `dataset_a`, `dataset_b` and the estimator's `history` split are generated,
-hash-pinned and committed. The harness, agent and evidence package land in Phases 4–8.
+**Status: Phase 4 of 9 complete.** The world is frozen and the scoreboard is built. All
+four baselines run with paired confidence intervals — deliberately *before* the agent
+exists, so the agent iterates against real numbers rather than impressions. The estimator,
+diagnosis, value engine and evidence package land in Phases 5–8.
+
+## The scoreboard, before the agent exists
+
+30 replications × 400 transactions, config A. Every policy faces the identical realised
+world at each replication index, so the deltas are paired.
+
+| Policy | Net value ₹ | Gross recovered ₹ | Recovery | Contacts | Annoyance cost ₹ |
+|---|---:|---:|---:|---:|---:|
+| `no_retry` — the floor | 0 | 0 | 0.0% | 0 | 0 |
+| `naive_retry` — 3 attempts, 24h apart | 15,416,121 | 15,431,789 | 50.0% | 0 | 0 |
+| **`max_recovery` — the success-rate ceiling** | **16,964,195** | **18,180,751** | 58.2% | 10,767 | **916,693** |
+| `max_recovery_oracle` — perfect diagnosis | 19,047,829 | 19,357,303 | 64.7% | 3,071 | 205,491 |
+
+**The two numbers the agent must produce:** beat **₹16,964,195** of net value while
+recovering less than **₹18,180,751** gross.
+
+The ceiling burns **₹916,693 of annoyance cost** to buy its extra recoveries. That is the
+headroom the thesis exploits — and note the oracle row, which recovers *more* while
+spending *less* on annoyance, because knowing the cause means only contacting when a
+contact is the right lever. Diagnosis quality reduces cost, it does not merely raise
+recovery.
 
 ---
 

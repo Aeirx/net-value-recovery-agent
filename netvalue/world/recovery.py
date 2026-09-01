@@ -86,6 +86,21 @@ class RecoveryContext:
     health: WorldHealth
     route_switched: bool = False
 
+    #: Replication index. Folded into every keyed draw so that a replication is a
+    #: different realised world, while remaining identical across policies at the same
+    #: index. This is what makes the Phase 4 comparison paired.
+    replication: int = 0
+
+
+def _rep_key(replication: int) -> tuple[object, ...]:
+    """Key fragment identifying the replication.
+
+    **Replication 0 is the canonical world** — the one frozen in ``data/`` — so it
+    contributes nothing to the key. That keeps the committed datasets byte-identical
+    under regeneration while every other replication draws an independent world.
+    """
+    return () if replication == 0 else ("rep", replication)
+
 
 def _soft_decline_base(attempt_index: int) -> float:
     if attempt_index < 1:
@@ -187,7 +202,7 @@ def debit_succeeds(
     since timing is a decision — but they do not face different luck.
     """
     p = debit_success_probability(cfg, ctx, intervention)
-    return rng.bernoulli(cfg.seed, p, "debit", ctx.transaction_id, ctx.attempt_index)
+    return rng.bernoulli(cfg.seed, p, "debit", *_rep_key(ctx.replication), ctx.transaction_id, ctx.attempt_index)
 
 
 # --- customer contact ------------------------------------------------------------------
@@ -231,6 +246,7 @@ def card_update_succeeds(cfg: WorldConfig, ctx: RecoveryContext) -> bool:
         cfg.seed,
         contact_response_probability(cfg, ctx),
         "contact-response",
+        *_rep_key(ctx.replication),
         ctx.transaction_id,
         ctx.contact_index,
     )
@@ -240,6 +256,7 @@ def card_update_succeeds(cfg: WorldConfig, ctx: RecoveryContext) -> bool:
         cfg.seed,
         cfg.costs.card_update.p_success_given_response,
         "new-card-debit",
+        *_rep_key(ctx.replication),
         ctx.transaction_id,
         ctx.contact_index,
     )
@@ -256,6 +273,7 @@ def contact_response_delay_hours(cfg: WorldConfig, ctx: RecoveryContext) -> floa
         cfg.seed,
         cfg.costs.card_update.response_delay_median_hours,
         "contact-delay",
+        *_rep_key(ctx.replication),
         ctx.transaction_id,
         ctx.contact_index,
     )
@@ -279,7 +297,7 @@ def escalation_succeeds(cfg: WorldConfig, ctx: RecoveryContext) -> bool:
     if ctx.true_cause is Cause.MANDATE_DEAD:
         return False
     return rng.bernoulli(
-        cfg.seed, p, "escalation", ctx.transaction_id, ctx.contact_index
+        cfg.seed, p, "escalation", *_rep_key(ctx.replication), ctx.transaction_id, ctx.contact_index
     )
 
 
@@ -288,6 +306,7 @@ def escalation_delay_hours(cfg: WorldConfig, ctx: RecoveryContext) -> float:
         cfg.seed,
         cfg.costs.escalation.queue_delay_median_hours,
         "escalation-delay",
+        *_rep_key(ctx.replication),
         ctx.transaction_id,
         ctx.contact_index,
     )

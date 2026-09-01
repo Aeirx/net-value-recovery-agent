@@ -1,13 +1,26 @@
-"""Baseline 1 - the floor.
+"""Baseline 1 — the floor.
 
-Phase 4 deliverable. Present in Phase 1 so the package shape — which encodes the
-world/agent boundary — is real and testable from the first commit.
+Does nothing. Every failed payment is written off immediately.
+
+It exists to make the other numbers legible: net value here is exactly zero, so any
+policy that cannot beat it is actively destroying value rather than merely underperforming.
 """
 
 from __future__ import annotations
 
-_PHASE = 4
+from netvalue.agent.observation import Observation
+from netvalue.agent.policy import Action, ActionKind
 
 
-def _not_yet(what: str) -> None:
-    raise NotImplementedError(f"{what} lands in Phase {_PHASE}")
+class NoRetryPolicy:
+    name = "no_retry"
+
+    def decide(self, observation: Observation) -> Action:
+        return Action(
+            kind=ActionKind.ABANDON,
+            expected_value_inr=0.0,
+            rationale="baseline: never attempts recovery",
+        )
+
+    def reset(self) -> None:
+        return None

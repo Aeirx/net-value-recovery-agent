@@ -51,8 +51,10 @@ python_version = "3.11"
 strict = true
 warn_unreachable = true
 disallow_untyped_defs = true
-# Strictness is enforced on the two packages whose correctness the thesis depends on.
-files = ["netvalue/world", "netvalue/agent"]
+# Every package whose correctness the reported numbers depend on. eval/ owns the
+# ledger and the metrics, so leaving it unchecked would exempt the arithmetic behind
+# the headline figure from the strictest tool in the project.
+files = ["netvalue"]
 
 [[tool.mypy.overrides]]
 module = ["matplotlib.*", "anthropic.*"]
