@@ -17,3 +17,8 @@ data/llm_cache.sqlite
 # Local agent pointer. The rules themselves live in ENGINEERING_RULES.md, which is
 # tracked; this file exists only so tooling picks them up and is deliberately private.
 CLAUDE.md
+
+# Build-plan and strategy documents. Kept locally, deliberately not published:
+# the competition is open, and these spell out the thesis, the baseline structure
+# and the roadmap in full.
+razorpay-buildathon-plan*.md
