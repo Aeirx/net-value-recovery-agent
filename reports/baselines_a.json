@@ -1,0 +1,89 @@
+{
+  "config_hash": "199ea9d47145b7bc0856b11f42767b7f88e42d36546a4ccc67a80451f541f1fa",
+  "deltas_vs_ceiling": {
+    "max_recovery_oracle": {
+      "ci_high": 2918004.8,
+      "ci_low": 1444260.96,
+      "mean": 2083634.03,
+      "sign_resolved": true,
+      "win_rate": 0.8644
+    },
+    "naive_retry": {
+      "ci_high": -386611.27,
+      "ci_low": -2946797.01,
+      "mean": -1548073.53,
+      "sign_resolved": true,
+      "win_rate": 0.7349
+    },
+    "no_retry": {
+      "ci_high": -12451958.85,
+      "ci_low": -22258539.03,
+      "mean": -16964194.88,
+      "sign_resolved": true,
+      "win_rate": 0.3776
+    }
+  },
+  "policies": {
+    "max_recovery": {
+      "abandoned_but_recoverable": 4237,
+      "annoyance_cost_inr": 916693.0,
+      "attempt_cost_inr": 299863.1,
+      "attempts": 23496,
+      "contacts": 10767,
+      "gate_fires": 0,
+      "gross_recovered_inr": 18180750.98,
+      "net_value_inr": 16964194.88,
+      "recovery_rate": 0.5819,
+      "terminal_reasons": {
+        "abandoned": 5017,
+        "recovered": 6983
+      }
+    },
+    "max_recovery_oracle": {
+      "abandoned_but_recoverable": 3461,
+      "annoyance_cost_inr": 205490.9,
+      "attempt_cost_inr": 103983.4,
+      "attempts": 16991,
+      "contacts": 3071,
+      "gate_fires": 1302,
+      "gross_recovered_inr": 19357303.2,
+      "net_value_inr": 19047828.91,
+      "recovery_rate": 0.6466,
+      "terminal_reasons": {
+        "abandoned": 4076,
+        "expired": 165,
+        "recovered": 7759
+      }
+    },
+    "naive_retry": {
+      "abandoned_but_recoverable": 5225,
+      "annoyance_cost_inr": 0.0,
+      "attempt_cost_inr": 15667.2,
+      "attempts": 26112,
+      "contacts": 0,
+      "gate_fires": 0,
+      "gross_recovered_inr": 15431788.55,
+      "net_value_inr": 15416121.35,
+      "recovery_rate": 0.4996,
+      "terminal_reasons": {
+        "abandoned": 6005,
+        "recovered": 5995
+      }
+    },
+    "no_retry": {
+      "abandoned_but_recoverable": 11220,
+      "annoyance_cost_inr": 0.0,
+      "attempt_cost_inr": 0.0,
+      "attempts": 0,
+      "contacts": 0,
+      "gate_fires": 0,
+      "gross_recovered_inr": 0.0,
+      "net_value_inr": 0.0,
+      "recovery_rate": 0.0,
+      "terminal_reasons": {
+        "abandoned": 12000
+      }
+    }
+  },
+  "replications": 30
+}

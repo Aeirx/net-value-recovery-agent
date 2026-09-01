@@ -9,5 +9,7 @@ venv/
 build/
 dist/
 .coverage
-reports/
+# reports/ is governed by reports/.gitignore, which keeps the JSON summaries and
+# drops the derived images and pages. Excluding the directory here would override that:
+# git cannot re-include a file whose parent directory is excluded.
 data/llm_cache.sqlite

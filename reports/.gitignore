@@ -1,0 +1,7 @@
+# Reports are derived artefacts and regenerate deterministically, so images and
+# pages stay out of the repository. The JSON summary is committed: it carries the
+# headline numbers, and a reviewer should be able to check a claim without first
+# installing and running the project.
+*
+!.gitignore
+!*.json
