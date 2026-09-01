@@ -1,0 +1,191 @@
+{
+  "arms": [
+    {
+      "accuracy": 0.655,
+      "confidence_ece": 0.1032,
+      "diagnoser": "rules",
+      "mean_confidence": 0.62,
+      "mean_entropy_bits": 1.558,
+      "mean_regret_inr": 35.26,
+      "n": 400,
+      "top2_accuracy": 0.8175,
+      "total_regret_inr": 14103.58,
+      "worst_confusions": [
+        {
+          "diagnosed": "insufficient_funds",
+          "n": 8,
+          "regret_inr": 3288.2,
+          "true": "risk_block"
+        },
+        {
+          "diagnosed": "risk_block",
+          "n": 3,
+          "regret_inr": 1723.87,
+          "true": "route_degraded"
+        },
+        {
+          "diagnosed": "insufficient_funds",
+          "n": 7,
+          "regret_inr": 1509.21,
+          "true": "route_degraded"
+        },
+        {
+          "diagnosed": "bank_outage",
+          "n": 6,
+          "regret_inr": 1293.61,
+          "true": "route_degraded"
+        },
+        {
+          "diagnosed": "risk_block",
+          "n": 3,
+          "regret_inr": 1141.84,
+          "true": "afa_timeout"
+        },
+        {
+          "diagnosed": "insufficient_funds",
+          "n": 9,
+          "regret_inr": 1020.82,
+          "true": "card_expired"
+        }
+      ]
+    },
+    {
+      "accuracy": 1.0,
+      "confidence_ece": 0.0,
+      "diagnoser": "oracle",
+      "mean_confidence": 1.0,
+      "mean_entropy_bits": 0.0,
+      "mean_regret_inr": 0.0,
+      "n": 400,
+      "top2_accuracy": 1.0,
+      "total_regret_inr": 0.0,
+      "worst_confusions": []
+    }
+  ],
+  "config_hash": "199ea9d47145b7bc0856b11f42767b7f88e42d36546a4ccc67a80451f541f1fa",
+  "confusion": {
+    "oracle": {
+      "afa_timeout": {
+        "afa_timeout": 71
+      },
+      "bank_outage": {
+        "bank_outage": 52
+      },
+      "card_expired": {
+        "card_expired": 29
+      },
+      "insufficient_funds": {
+        "insufficient_funds": 159
+      },
+      "mandate_dead": {
+        "mandate_dead": 26
+      },
+      "risk_block": {
+        "risk_block": 26
+      },
+      "route_degraded": {
+        "route_degraded": 37
+      }
+    },
+    "rules": {
+      "afa_timeout": {
+        "afa_timeout": 46,
+        "bank_outage": 3,
+        "insufficient_funds": 13,
+        "risk_block": 3,
+        "route_degraded": 6
+      },
+      "bank_outage": {
+        "afa_timeout": 4,
+        "bank_outage": 34,
+        "insufficient_funds": 6,
+        "route_degraded": 8
+      },
+      "card_expired": {
+        "bank_outage": 1,
+        "card_expired": 15,
+        "insufficient_funds": 9,
+        "mandate_dead": 1,
+        "route_degraded": 3
+      },
+      "insufficient_funds": {
+        "afa_timeout": 13,
+        "bank_outage": 13,
+        "insufficient_funds": 124,
+        "mandate_dead": 1,
+        "risk_block": 1,
+        "route_degraded": 7
+      },
+      "mandate_dead": {
+        "bank_outage": 4,
+        "card_expired": 1,
+        "insufficient_funds": 7,
+        "mandate_dead": 13,
+        "route_degraded": 1
+      },
+      "risk_block": {
+        "afa_timeout": 1,
+        "bank_outage": 2,
+        "insufficient_funds": 8,
+        "mandate_dead": 1,
+        "risk_block": 13,
+        "route_degraded": 1
+      },
+      "route_degraded": {
+        "afa_timeout": 3,
+        "bank_outage": 6,
+        "card_expired": 1,
+        "insufficient_funds": 7,
+        "risk_block": 3,
+        "route_degraded": 17
+      }
+    }
+  },
+  "llm_usage": null,
+  "model": null,
+  "n": 400,
+  "regret_matrix": {
+    "afa_timeout->bank_outage": 0.0,
+    "afa_timeout->card_expired": 332.2,
+    "afa_timeout->insufficient_funds": 0.0,
+    "afa_timeout->mandate_dead": 323.25,
+    "afa_timeout->risk_block": 380.61,
+    "afa_timeout->route_degraded": 0.3,
+    "bank_outage->afa_timeout": 0.0,
+    "bank_outage->card_expired": 526.51,
+    "bank_outage->insufficient_funds": 0.0,
+    "bank_outage->mandate_dead": 517.56,
+    "bank_outage->risk_block": 574.92,
+    "bank_outage->route_degraded": 0.3,
+    "card_expired->afa_timeout": 113.42,
+    "card_expired->bank_outage": 113.42,
+    "card_expired->insufficient_funds": 113.42,
+    "card_expired->mandate_dead": 112.82,
+    "card_expired->risk_block": 170.18,
+    "card_expired->route_degraded": 113.72,
+    "insufficient_funds->afa_timeout": 0.0,
+    "insufficient_funds->bank_outage": 0.0,
+    "insufficient_funds->card_expired": 127.09,
+    "insufficient_funds->mandate_dead": 118.15,
+    "insufficient_funds->risk_block": 175.51,
+    "insufficient_funds->route_degraded": 0.3,
+    "mandate_dead->afa_timeout": 0.6,
+    "mandate_dead->bank_outage": 0.6,
+    "mandate_dead->card_expired": 8.94,
+    "mandate_dead->insufficient_funds": 0.6,
+    "mandate_dead->risk_block": 93.34,
+    "mandate_dead->route_degraded": 0.9,
+    "risk_block->afa_timeout": 411.03,
+    "risk_block->bank_outage": 411.03,
+    "risk_block->card_expired": 433.76,
+    "risk_block->insufficient_funds": 411.03,
+    "risk_block->mandate_dead": 424.82,
+    "risk_block->route_degraded": 411.33,
+    "route_degraded->afa_timeout": 215.6,
+    "route_degraded->bank_outage": 215.6,
+    "route_degraded->card_expired": 526.21,
+    "route_degraded->insufficient_funds": 215.6,
+    "route_degraded->mandate_dead": 517.26,
+    "route_degraded->risk_block": 574.62
+  }
+}

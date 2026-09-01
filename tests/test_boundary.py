@@ -139,6 +139,55 @@ def test_agent_never_imports_world(path: Path) -> None:
     )
 
 
+def _module_to_path(dotted: str) -> Path | None:
+    """Resolve a first-party dotted module name to a file, if one exists."""
+    parts = dotted.split(".")
+    if not parts or parts[0] != PACKAGE:
+        return None
+    candidate = REPO_ROOT.joinpath(*parts).with_suffix(".py")
+    if candidate.is_file():
+        return candidate
+    package_init = REPO_ROOT.joinpath(*parts, "__init__.py")
+    return package_init if package_init.is_file() else None
+
+
+@pytest.mark.parametrize(
+    "path", _restricted_files(), ids=lambda p: p.relative_to(REPO_ROOT).as_posix()
+)
+def test_agent_never_reaches_world_transitively(path: Path) -> None:
+    """The boundary must hold through intermediaries, not just at the first hop.
+
+    A direct-import check is not enough. ``agent/diagnose/llm.py`` imports
+    ``netvalue.llm.client``, which is unrestricted — if that module ever imported the
+    world, the agent would have a path to ground truth and the first-hop guard would
+    report a clean pass. This walks the whole first-party import graph and closes that.
+    """
+    seen: set[Path] = set()
+    stack: list[tuple[Path, tuple[str, ...]]] = [(path, (path.relative_to(REPO_ROOT).as_posix(),))]
+
+    while stack:
+        current, chain = stack.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+
+        for name in _imported_targets(current):
+            if _violates(name):
+                raise AssertionError(
+                    "the agent can reach ground truth through "
+                    + " -> ".join(chain)
+                    + f" -> {name}.\n"
+                    "Every module on that path is part of the boundary, whichever "
+                    "directory it lives in."
+                )
+            nxt = _module_to_path(name)
+            if nxt is not None and nxt not in seen:
+                rel = nxt.relative_to(REPO_ROOT).as_posix()
+                if rel in ALLOWLIST:
+                    continue
+                stack.append((nxt, (*chain, rel)))
+
+
 @pytest.mark.parametrize(
     "path", _restricted_files(), ids=lambda p: p.relative_to(REPO_ROOT).as_posix()
 )

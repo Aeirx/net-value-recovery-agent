@@ -9,7 +9,8 @@ param(
     [Parameter(Position = 0)]
     [ValidateSet('help', 'install', 'test', 'lint', 'typecheck', 'check', 'smoke',
                  'boundary', 'config', 'datasets', 'baselines',
-                 'estimator', 'reproduce', 'clean')]
+                 'estimator', 'diagnosis',
+                 'reproduce', 'clean')]
     [string]$Target = 'help'
 )
 
@@ -35,6 +36,7 @@ switch ($Target) {
         Write-Host 'datasets   - generate and freeze dataset_a, dataset_b and history'
         Write-Host 'baselines  - run all four baselines with confidence intervals'
         Write-Host 'estimator  - fit the recovery estimator and validate its calibration'
+        Write-Host 'diagnosis  - score every diagnosis arm (free; --live costs money)'
         Write-Host 'smoke      - 50-transaction end-to-end smoke evaluation'
         Write-Host 'reproduce  - regenerate every number in the README from scratch'
     }
@@ -47,6 +49,7 @@ switch ($Target) {
     'datasets'  { Invoke-Step 'datasets'  { & $py scripts/generate_datasets.py } }
     'baselines' { Invoke-Step 'baselines' { & $py scripts/run_baselines.py --config a --replications 30 } }
     'estimator' { Invoke-Step 'estimator' { & $py scripts/fit_estimator.py } }
+    'diagnosis' { Invoke-Step 'diagnosis' { & $py scripts/run_diagnosis.py --config a } }
     'smoke'     { Invoke-Step 'smoke'     { & $py scripts/smoke_eval.py --n 50 } }
     'check' {
         Invoke-Step 'ruff'   { & $py -m ruff check netvalue tests scripts }
@@ -59,7 +62,8 @@ switch ($Target) {
         Invoke-Step 'smoke'  { & $py scripts/smoke_eval.py --n 50 }
         Invoke-Step 'baselines' { & $py scripts/run_baselines.py --config a --replications 30 }
         Invoke-Step 'estimator' { & $py scripts/fit_estimator.py }
-        Write-Host '--- Phase 6+ stages append here (diagnosis, agent, sweeps)'
+        Invoke-Step 'diagnosis' { & $py scripts/run_diagnosis.py --config a }
+        Write-Host '--- Phase 7+ stages append here (value engine, agent, sweeps)'
     }
     'clean' {
         Get-ChildItem -Recurse -Directory -Filter __pycache__ |

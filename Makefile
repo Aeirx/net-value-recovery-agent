@@ -1,6 +1,6 @@
 PY ?= python
 
-.PHONY: help install test lint typecheck check smoke boundary config datasets baselines estimator reproduce clean
+.PHONY: help install test lint typecheck check smoke boundary config datasets baselines estimator diagnosis reproduce clean
 
 help:
 	@echo "install    - install the package and dev dependencies"
@@ -13,6 +13,7 @@ help:
 	@echo "datasets   - generate and freeze dataset_a, dataset_b and history"
 	@echo "baselines  - run all four baselines with confidence intervals"
 	@echo "estimator  - fit the recovery estimator and validate its calibration"
+	@echo "diagnosis  - score every diagnosis arm (free; --live costs money)"
 	@echo "smoke      - 50-transaction end-to-end smoke evaluation"
 	@echo "reproduce  - regenerate every number in the README from scratch"
 
@@ -45,6 +46,9 @@ baselines:
 estimator:
 	$(PY) scripts/fit_estimator.py
 
+diagnosis:
+	$(PY) scripts/run_diagnosis.py --config a
+
 smoke:
 	$(PY) scripts/smoke_eval.py --n 50
 
@@ -57,7 +61,8 @@ reproduce: config
 	$(PY) scripts/smoke_eval.py --n 50
 	$(PY) scripts/run_baselines.py --config a --replications 30
 	$(PY) scripts/fit_estimator.py
-	@echo "--- Phase 6+ stages append here (diagnosis, agent, sweeps)"
+	$(PY) scripts/run_diagnosis.py --config a
+	@echo "--- Phase 7+ stages append here (value engine, agent, sweeps)"
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache reports/*.png reports/*.md

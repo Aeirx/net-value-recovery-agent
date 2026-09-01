@@ -15,10 +15,12 @@ import sys
 from pathlib import Path
 
 from netvalue.agent.calibration import base_rate, brier_score, expected_calibration_error
+from netvalue.agent.diagnose.rules import RulesDiagnoser
 from netvalue.agent.estimator import RecoveryEstimator, _read_jsonl, split_by_transaction
 from netvalue.agent.features import from_history_row
+from netvalue.eval.diagnosis import evaluate as evaluate_diagnosis
 from netvalue.eval.metrics import summarise
-from netvalue.eval.runner import EpisodeRunner
+from netvalue.eval.runner import EpisodeRunner, to_observation
 from netvalue.policies.max_recovery import (
     MaxRecoveryOraclePolicy,
     MaxRecoveryPolicy,
@@ -152,6 +154,29 @@ def check_estimator() -> list[str]:
     return failures
 
 
+def check_diagnosis(cfg: WorldConfig, n: int) -> list[str]:
+    """The rules arm is free and deterministic, so it runs on every push.
+
+    It is also the ablation floor: if it silently degraded toward guessing, beating it
+    would stop meaning anything and the "AI judgment" claim would quietly hollow out.
+    """
+    probe = cfg.model_copy(update={"n_transactions": n})
+    txns = generate_transactions(probe)
+    observations = [
+        to_observation(t, now=t.first_failure_at, attempt_number=1, contacts_used=0, prior=())
+        for t in txns
+    ]
+    diagnoser = RulesDiagnoser()
+    posteriors = [diagnoser.diagnose(o) for o in observations]
+    report = evaluate_diagnosis(cfg, "rules", posteriors, [t.true_cause.value for t in txns])
+    print(f"diagnosis         rules acc {report.accuracy:.1%}  "
+          f"mean regret Rs {report.mean_regret_inr:,.1f}  ece {report.ece:.3f}")
+    failures: list[str] = []
+    if report.accuracy < 0.45:
+        failures.append(f"rules arm degraded to {report.accuracy:.1%}; the floor is a strawman")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--n", type=int, default=50, help="transactions once Phase 3 lands")
@@ -164,10 +189,11 @@ def main() -> int:
     failures += check_world(CONFIG_A, args.n)
     failures += check_harness(CONFIG_A, args.n)
     failures += check_estimator()
+    failures += check_diagnosis(CONFIG_A, args.n)
 
-    # Phase 6+ stages append here: diagnosis -> agent -> report.
+    # Phase 7+ stages append here: value engine -> agent -> report.
     print("stages            config [ok]  world [ok]  harness [ok]  estimator [ok]  "
-          "agent [phase 7]")
+          "diagnosis [ok]  agent [phase 7]")
 
     if failures:
         print("\nFAILED")

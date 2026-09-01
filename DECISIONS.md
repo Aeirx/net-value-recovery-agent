@@ -336,6 +336,59 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
 - **064** · Calibration metrics live under `agent/`, not `eval/`. *`eval/` already imports
   `agent/`; the reverse edge would make a cycle. The metrics depend on nothing but numbers.*
 
+## Phase 6 — diagnosis · 2026-09-02
+
+- **065** · Every diagnoser returns a **posterior over all seven causes**, never a label.
+  *On `GW_21` the top two sit at 43% and 40%, and one implies a paid customer contact while
+  the other implies abandoning. A label cannot express that; a distribution can, and the
+  value engine can price it.*
+
+- **066** · Diagnosis is scored by **rupees of regret**, not accuracy. *Calling a dead
+  mandate an expired card wastes one contact (~₹11). Calling an expired card a dead mandate
+  loses the entire recovery (~₹350). Confusions in this world differ by 50× in cost and an
+  accuracy figure reports them identically.* The regret matrix is computed from the actual
+  economics of the action each diagnosis implies.
+
+- **067** · The rules arm is built to be a **fair floor**, not a strawman. *If the model
+  only beat a bad rule table the "AI judgment" claim would be worth nothing. It uses every
+  observable cue the world puts there — passed expiry, late payment, unanswered outreach,
+  a long-dead mandate, rail constraints — and lands at 65.5% accuracy.* What it cannot do
+  is weigh cues that conflict, which is precisely where a model should earn its place.
+
+- **068** · The rules arm is a decent classifier and a **bad probability source**:
+  confidence ECE 0.206, badly overconfident at the low end (says 36%, right 11%) and
+  underconfident at the high end (says 83%, right 97%). *The value engine consumes
+  confidence directly, so this matters more than the accuracy gap. It is the strongest
+  available argument for the model arm and it has nothing to do with accuracy.*
+
+- **069** · The system prompt carries **no calibrated priors** — it describes what each
+  cause is and what fixes it, never the world's `P(cause | code)` table. *Handing the model
+  the answer sheet would be the same tautology as letting the agent import the simulator.*
+  Asserted by a test that greps the prompt for code names.
+
+- **070** · `agent/diagnose/oracle.py` receives ground truth **as data**, so it stays off
+  the boundary allowlist. *One exemption is a rule; two is a habit. The guard stays absolute
+  over `agent/`, with nothing to maintain.*
+
+- **071** · **The boundary guard is now transitive.** *`agent/diagnose/llm.py` imports
+  `netvalue.llm.client`, which is unrestricted. If that module ever imported the world, the
+  agent would have a path to ground truth and the first-hop check would report a clean
+  pass.* The guard now walks the whole first-party import graph.
+
+- **072** · Every LLM response is cached on `sha256(model + params + prompt)`, and the
+  cache is committed. *Two problems, one mechanism: a diagnosis is paid for once ever, and
+  the frozen experiment stays reproducible despite a non-deterministic component. It also
+  means the demo cannot fail because an API is unhealthy at the moment you press play.*
+
+- **073** · Offline is the **default**, and a cache miss offline is a hard error. *CI must
+  never be able to spend money, and a silent live call on a build machine is exactly how
+  that happens. `--live` is opt-in and `--estimate-cost` prices a run before you authorise
+  one.*
+
+- **074** · A degenerate all-zero response falls back to a **uniform** posterior, not a
+  plausible guess. *"We learned nothing" is the honest reading. A confident-looking default
+  would silently become the result.*
+
 ## Template for later phases
 
 ```

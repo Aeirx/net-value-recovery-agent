@@ -8,10 +8,55 @@ recovering.
 > max-recovery policy and produces *more net value*, reported side by side with confidence
 > intervals.
 
-**Status: Phase 5 of 9 complete.** The world is frozen, the scoreboard is built, and the
-agent now has its only source of physics: a recovery estimator fitted on the historical
-log and validated for calibration. Diagnosis, the value engine and the evidence package
-land in Phases 6–8.
+**Status: Phase 6 of 9 complete.** The world is frozen, the scoreboard is built, and both
+halves of the agent's inference layer are in place and independently validated: a
+calibrated recovery estimator, and a diagnosis layer with three comparable arms. The value
+engine and the evidence package land in Phases 7–8.
+
+## Diagnosis is scored in rupees, not accuracy
+
+A confusion matrix weights every mistake the same. Here they differ by **50×**:
+
+| True cause | Diagnosed as | Net value destroyed |
+|---|---|---:|
+| `bank_outage` | `risk_block` | ₹575 |
+| `card_expired` | `mandate_dead` | ₹350 — the whole recovery, abandoned |
+| `mandate_dead` | `card_expired` | ₹11 — one wasted contact |
+
+13 of 42 possible confusions cost under ₹5; the worst costs ₹575. An accuracy figure
+reports those identically, so the metric is **regret in rupees**, computed from the actual
+economics of the action each diagnosis implies.
+
+| Diagnoser | Accuracy | Top-2 | Mean regret ₹ | Confidence ECE |
+|---|---:|---:|---:|---:|
+| `rules` — the ablation floor | 65.5% | 81.8% | 35.3 | 0.206 |
+| `llm` | *pending — see below* | | | |
+| `oracle` — the ceiling | 100.0% | 100.0% | 0.0 | 0.000 |
+
+**The rules arm is deliberately a fair opponent.** It uses every observable cue the world
+puts there — a passed expiry, a habitual late payer, outreach never answered, a mandate
+long dead, the rail's own constraints — and reaches 65.5%. If the model only beat a bad
+rule table, the AI-judgment claim would be worth nothing.
+
+**The more interesting number is its confidence ECE of 0.206.** The rules arm is a decent
+classifier and a *bad probability source*: it says 36% and is right 11% of the time, says
+83% and is right 97%. The value engine consumes confidence directly, so that miscalibration
+costs real money — and it has nothing to do with accuracy. That is the sharpest available
+case for a model in this slot.
+
+### The LLM arm is built, priced, and not yet run
+
+Nothing calls the API without `--live`. A full pass over the 400-transaction evaluation set:
+
+| Model | Cost |
+|---|---:|
+| `claude-opus-5` | $3.29 |
+| `claude-sonnet-5` | $1.32 |
+| `claude-haiku-4-5` | $0.66 |
+
+Paid **once** — every response is cached on `sha256(model + params + prompt)` and the cache
+is committed, so re-runs are free, deterministic, and work with no network. That also means
+the demo cannot fail because an API is unhealthy at the moment you press play.
 
 ## The estimator — the agent learns the physics, it does not read them
 
