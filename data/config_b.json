@@ -261,7 +261,7 @@
   },
   "n_history_transactions": 3000,
   "n_transactions": 400,
-  "name": "config_a",
+  "name": "config_b",
   "plans": [
     {
       "amount_inr": 99.0,
@@ -299,12 +299,12 @@
     "upi_autopay": 0.35
   },
   "regime": {
-    "correlated_outage_banks": 0,
-    "correlated_outage_hours": 0.0,
-    "invert_segment_response": false,
-    "unseen_code_share": 0.0
+    "correlated_outage_banks": 4,
+    "correlated_outage_hours": 9.0,
+    "invert_segment_response": true,
+    "unseen_code_share": 0.12
   },
-  "seed": 20260831,
+  "seed": 20260905,
   "segments": {
     "dormant": {
       "contact_response_prob": 0.06,

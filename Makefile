@@ -1,6 +1,6 @@
 PY ?= python
 
-.PHONY: help install test lint typecheck check smoke boundary config reproduce clean
+.PHONY: help install test lint typecheck check smoke boundary config datasets reproduce clean
 
 help:
 	@echo "install    - install the package and dev dependencies"
@@ -10,6 +10,7 @@ help:
 	@echo "check      - lint + typecheck + test  (what CI runs)"
 	@echo "boundary   - run only the world/agent boundary guard"
 	@echo "config     - write data/config_a.json and print its hash"
+	@echo "datasets   - generate and freeze dataset_a, dataset_b and history"
 	@echo "smoke      - 50-transaction end-to-end smoke evaluation"
 	@echo "reproduce  - regenerate every number in the README from scratch"
 
@@ -33,14 +34,20 @@ boundary:
 config:
 	$(PY) scripts/write_config.py
 
+datasets:
+	$(PY) scripts/generate_datasets.py
+
 smoke:
 	$(PY) scripts/smoke_eval.py --n 50
 
 # The single command that must regenerate every published number from a clean clone.
 # Phases append their stage here as they land; it is never allowed to go stale.
+# The datasets are frozen and committed, so reproduce verifies rather than regenerates:
+# tests/test_determinism.py re-runs the generator and compares against the manifest.
 reproduce: config
 	$(PY) -m pytest -q
-	@echo "--- Phase 3+ stages append here (datasets, baselines, agent, sweeps, report)"
+	$(PY) scripts/smoke_eval.py --n 50
+	@echo "--- Phase 4+ stages append here (baselines, agent, sweeps, report)"
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache reports/*.png reports/*.md

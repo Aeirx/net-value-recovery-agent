@@ -8,8 +8,9 @@ recovering.
 > max-recovery policy and produces *more net value*, reported side by side with confidence
 > intervals.
 
-**Status: Phase 1 of 9 complete.** Foundation, typed config, boundary guard and CI are in
-place. The world, harness, agent and evidence package land in Phases 3–8.
+**Status: Phase 3 of 9 complete.** Foundation, calibration and the frozen world are in
+place: `dataset_a`, `dataset_b` and the estimator's `history` split are generated,
+hash-pinned and committed. The harness, agent and evidence package land in Phases 4–8.
 
 ---
 
@@ -51,19 +52,26 @@ contact 3 is where it destroys value it then books as a success-rate win.
 system. Measured on the committed config:
 
 ```
-H(cause)          2.608 bits
-H(cause | code)   1.904 bits
-I(cause; code)    0.705 bits      ceiling 1.000
+H(cause)          2.526 bits
+H(cause | code)   1.898 bits
+I(cause; code)    0.627 bits      ceiling 1.000
 ```
+
+Measured on the **effective** cause prior — the distribution the generator actually
+realises. Phase 3 found this mattered: two causes are card-only, so the UPI rail
+renormalises over what remains, and the raw-prior calculation had `GW_33` at a comfortable
+68.7% while the world was really at **70.4%, over the ceiling**. A guarantee checked
+against a quantity the world does not have is not a guarantee. The fix was to lower the
+offending mass, not to raise the ceiling.
 
 | Code | P(code) | Top cause | Runner-up | H(cause\|code) |
 |---|---|---|---|---|
-| `GW_05` | 0.324 | insufficient_funds 60.9% | card_expired 11.1% | 1.926 |
-| `GW_33` | 0.153 | afa_timeout 68.7% | insufficient_funds 13.4% | 1.481 |
-| `GW_54` | 0.138 | route_degraded 39.9% | bank_outage 23.9% | 2.273 |
-| `GW_11` | 0.134 | insufficient_funds 48.4% | risk_block 33.0% | 1.914 |
-| `GW_91` | 0.127 | bank_outage 41.7% | insufficient_funds 26.8% | 2.149 |
-| `GW_21` | 0.125 | card_expired 52.8% | mandate_dead 33.6% | 1.694 |
+| `GW_05` | 0.337 | insufficient_funds 63.6% | risk_block 9.5% | 1.853 |
+| `GW_33` | 0.155 | afa_timeout 64.0% | insufficient_funds 16.9% | 1.573 |
+| `GW_11` | 0.146 | insufficient_funds 49.0% | risk_block 33.4% | 1.866 |
+| `GW_54` | 0.128 | bank_outage 28.5% | route_degraded 27.9% | 2.369 |
+| `GW_91` | 0.127 | bank_outage 45.8% | insufficient_funds 29.5% | 2.043 |
+| `GW_21` | 0.107 | mandate_dead 43.3% | card_expired 40.0% | 1.821 |
 
 Three of these are ambiguous in ways that are *economically* expensive, not merely wrong:
 
@@ -104,6 +112,37 @@ justification.
 ```bash
 make boundary      # or:  .\make.ps1 boundary
 ```
+
+## The frozen world
+
+Three datasets, hash-pinned in `data/manifest.json` alongside both config hashes, every
+seed and the git SHA. `tests/test_determinism.py` re-runs the generator and asserts the
+output is **byte-identical** to the freeze, so the world is recoverable from source rather
+than merely unedited.
+
+| File | Rows | Role |
+|---|---|---|
+| `dataset_a.jsonl` | 400 | Tuning regime |
+| `dataset_b.jsonl` | 400 | Held-out regime — run once, on Friday, untouched |
+| `history.jsonl` | 6,172 | Estimator training split: observed outcomes, **no causes** |
+
+**54% of config A is recoverable but not worth recovering** at a third contact — computed
+as a property of the dataset before any agent exists. If that number were near zero the
+annoyance cost would not be biting and the thesis would have nothing to work with.
+
+Config B differs *structurally*, not in difficulty — a uniformly harder world would only
+show the agent degrades. Each difference makes a rule learned on A actively wrong on B:
+
+- **A correlated four-bank outage.** On A, "wait a few hours or route around it" is a good
+  rule. Here several banks fail together for most of a day and waiting burns horizon the
+  mandate does not have.
+- **An unseen error code** (`GW_99`, 12%). No prior, no estimator cell. Whether the system
+  degrades gracefully or invents a confident diagnosis is the thing under test.
+- **Inverted segment response.** Engaged customers stop answering and dormant ones start,
+  so a contact policy fitted on A targets exactly the wrong people.
+
+Two data-level boundary guarantees back the import guard: `history.jsonl` is asserted to
+contain no cause field, and its population is asserted disjoint from the evaluation set.
 
 ## Quickstart
 

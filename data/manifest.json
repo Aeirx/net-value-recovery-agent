@@ -1,0 +1,25 @@
+{
+  "configs": {
+    "config_a": {
+      "hash": "199ea9d47145b7bc0856b11f42767b7f88e42d36546a4ccc67a80451f541f1fa",
+      "seed": 20260831
+    },
+    "config_b": {
+      "hash": "aa0d8aed6a6c8a2b0f21164bf706fa4219075b96d13456c8cbe8cbb4ffa48f21",
+      "seed": 20260905
+    }
+  },
+  "files": {
+    "dataset_a.jsonl": "dd9b9b42377fe248677bdb947b650a102891cefd5616c8bce736bae2bdc43f2a",
+    "dataset_b.jsonl": "d9f6611c2b162de588d8c21ddee2e4ca54d900654a8848f6d392ebb71224c8ba",
+    "history.jsonl": "e88c9fca065f3de7136db2d4f4ebc927e2a17244ecf1007156b324d670adf6b4"
+  },
+  "frozen_at": "2026-09-01T04:21:52.802587+00:00",
+  "git_sha": "d825ed4468f738f1bb93e289c58e2149ae88b05c",
+  "regime_b": {
+    "correlated_outage_banks": 4,
+    "correlated_outage_hours": 9.0,
+    "invert_segment_response": true,
+    "unseen_code_share": 0.12
+  }
+}

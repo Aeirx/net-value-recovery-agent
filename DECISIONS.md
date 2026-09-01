@@ -162,6 +162,78 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   numbers are invented and are labelled so.* Upgrade by pulling the page manually before
   the video.
 
+## Phase 3 — world and frozen datasets · 2026-09-01
+
+- **032** · Every random draw is keyed by `(transaction_id, attempt_index, purpose)` rather
+  than taken from one sequential generator. *Two policies that make different choices must
+  face the same world; with a sequential stream a policy that retried twice would shift
+  every later draw and the paired comparison in Phase 4 would be impossible.* This is the
+  single most load-bearing implementation decision in the phase.
+
+- **033** · **The ambiguity guarantee was being measured wrong, and it was actually
+  breached.** *A cause's prior is conditional on that cause being possible, but two causes
+  are card-only, so the generator renormalises on the UPI rail. Measured on the effective
+  prior, `GW_33` carried 70.4% of its mass on one cause against a 70% ceiling — while the
+  raw-prior calculation reported a comfortable 68.7%.* Added `effective_cause_prior()` and
+  rewired every analytic and validator through it. A guarantee checked against a quantity
+  the world does not have is not a guarantee.
+
+- **034** · Fixed the breach by cutting `P(GW_33 | afa_timeout)` 0.70 → 0.60 rather than
+  raising the ceiling. *The 70% constraint predates the measurement; moving it to fit the
+  world would be exactly the "weaken a test to get green" failure `CLAUDE.md` forbids.*
+  Freed mass went to `GW_05` and `GW_54`, which an incomplete authorisation plausibly
+  surfaces as. Max mass is now 64.0%.
+
+- **035** · BD target moved 0.78 → 0.80. *Not tuning: the effective prior gives 80.7%,
+  which sits directly on the published ~80/20 split. The 0.78 figure was fitted to raw
+  priors describing a population the generator never produces.*
+
+- **036** · Test asserts the top-two *set* for the three loaded ambiguities, not their
+  order. *Ordering is an artifact of the rail mix — `card_expired` is card-only so it
+  carries less effective mass than `mandate_dead` despite being likelier on the card rail
+  — and flips under legitimate changes. Both carrying real mass is the property that
+  matters.* `GW_21` is now contested 43/40, more ambiguous than before.
+
+- **037** · Retries, delayed retries, scheduled retries and route switches share one
+  physics function. *They are the same physical act — presenting a debit at a moment in
+  time — differing only in when and where they land. Giving each its own hand-tuned success
+  rate would let me quietly encode the answer I wanted.*
+
+- **038** · Only ~55% of expired cards show a visibly past stored expiry. *Reissues change
+  the number while the stored date still looks fine. Without that overlap the expiry field
+  would resolve `GW_21` on sight and the most economically loaded confusion in the world —
+  a paid contact against an abandon — would collapse into a lookup.*
+
+- **039** · Customer history is generated cause-conditionally. *The error code is
+  deliberately uninformative, so if nothing else discriminated, diagnosis would be guessing
+  from the prior and the model layer would be decoration. The signal has to live somewhere,
+  and history is where a real analyst would look.*
+
+- **040** · The history logging policy explores across the whole intervention set. *A
+  policy that only retried would leave the estimator blind about contacts and escalations
+  — blind in a direction that happens to favour my thesis, which is exactly the convenient
+  gap a reviewer should be able to rule out.* Asserted by a test requiring ≥100 logged
+  actions and ≥1 success per intervention.
+
+- **041** · History uses a different population and seed from `dataset_a`. *Training the
+  estimator on transactions it is later scored against would inflate it for free.* Asserted
+  by a disjointness test.
+
+- **042** · Config B differs **structurally**, not in difficulty. *A uniformly harder world
+  would only show the agent degrades, which is uninteresting. Correlated multi-bank outage,
+  an unseen error code, and inverted segment response each make a rule learned on A
+  actively wrong on B — attacking the value engine and the diagnoser separately.*
+
+- **043** · Re-froze the datasets once, with `--force`, after the 033 fix. *The freeze
+  discipline exists to stop re-rolling after seeing agent scores. No agent exists yet and
+  no number had been reported; the regeneration was forced by a correctness fix to a
+  metric, not by a disappointing result.* This is the only re-freeze; there will not be
+  another.
+
+- **044** · `generate_datasets.py` refuses to run when a manifest exists unless `--force`.
+  *The freeze needs a mechanism, not just a rule in a document — the failure mode is
+  regenerating absent-mindedly on a Thursday.*
+
 ## Template for later phases
 
 ```

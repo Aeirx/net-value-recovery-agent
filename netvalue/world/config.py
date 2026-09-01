@@ -88,6 +88,18 @@ class ErrorCode(StrEnum):
     GW_54 = "GW_54"  # upstream timeout
     GW_91 = "GW_91"  # issuer unavailable
 
+    #: Regime-only. Never emitted under config A, so an agent tuned on A has never seen
+    #: it and has no estimator cell for it. Config B injects it to test whether the
+    #: system degrades gracefully or confidently invents a diagnosis.
+    GW_99 = "GW_99"
+
+
+#: The codes that carry a calibrated ``P(code | cause)`` row. ``GW_99`` is excluded by
+#: construction: it has no distribution because it is not part of the tuning world.
+BASE_ERROR_CODES: tuple[ErrorCode, ...] = tuple(
+    c for c in ErrorCode if c is not ErrorCode.GW_99
+)
+
 
 class Intervention(StrEnum):
     RETRY_NOW = "retry_now"
@@ -311,6 +323,37 @@ class ClockConfig(_Frozen):
         return self
 
 
+class RegimeConfig(_Frozen):
+    """What makes the held-out world different.
+
+    Config A leaves every field at its default, so the tuning regime is the plain world.
+    Config B turns these on, and the agent meets them exactly once, on Friday, untouched.
+
+    The point is not to make config B *harder* — a uniformly harder world would only show
+    that the agent degrades, which is uninteresting. The point is to make it
+    *structurally different*, so that a rule learned on A is actively wrong on B.
+    """
+
+    #: Number of banks that fail simultaneously in a single correlated event.
+    #: A per-transaction world cannot represent this at all.
+    correlated_outage_banks: int = Field(default=0, ge=0)
+    correlated_outage_hours: NonNegative = 0.0
+
+    #: Fraction of failures relabelled ``GW_99``, a code absent from the tuning regime.
+    unseen_code_share: Probability = 0.0
+
+    #: Swaps the contact-response behaviour of the engaged and dormant segments. The
+    #: agent's learned contact policy is then pointed at exactly the wrong customers.
+    invert_segment_response: bool = False
+
+    def is_baseline(self) -> bool:
+        return (
+            self.correlated_outage_banks == 0
+            and self.unseen_code_share == 0.0
+            and not self.invert_segment_response
+        )
+
+
 class AmbiguityThresholds(_Frozen):
     """DECISION-006. Asserted in ``tests/test_ambiguity.py``.
 
@@ -335,6 +378,10 @@ class WorldConfig(_Frozen):
     seed: int
     n_transactions: int = Field(gt=0)
 
+    #: Size of the estimator's training population. Generated from a different seed than
+    #: the evaluation set, so nothing the estimator learns from is also scored on.
+    n_history_transactions: int = Field(default=3000, gt=0)
+
     rail_shares: dict[Rail, Probability]
 
     #: Share of scheduled debits that fail on each rail, before any recovery. Sourced in
@@ -352,6 +399,7 @@ class WorldConfig(_Frozen):
     bounds: Bounds
     clock: ClockConfig
     ambiguity: AmbiguityThresholds
+    regime: RegimeConfig = RegimeConfig()
 
     bd_share_target: Probability
     bd_share_tolerance: Probability
@@ -376,22 +424,28 @@ class WorldConfig(_Frozen):
             raise ValueError("every Cause needs a P(code | cause) row")
 
         for cause, row in self.code_given_cause.items():
-            if set(row) != set(ErrorCode):
-                raise ValueError(f"P(code | {cause}) must cover every ErrorCode")
+            if set(row) != set(BASE_ERROR_CODES):
+                raise ValueError(
+                    f"P(code | {cause}) must cover every base ErrorCode "
+                    f"(GW_99 is regime-only and carries no distribution)"
+                )
             _sums_to_one(f"P(code | {cause})", list(row.values()))
 
         return self
 
     @model_validator(mode="after")
     def _check_bd_td_split(self) -> Self:
+        # Measured on the effective prior, not the raw one: the raw figure describes a
+        # population the generator never produces. See effective_cause_prior.
+        eff = self.effective_cause_prior()
         bd = math.fsum(
-            spec.prior
-            for spec in self.causes.values()
+            eff[cause]
+            for cause, spec in self.causes.items()
             if spec.decline_class is DeclineClass.BD
         )
         if abs(bd - self.bd_share_target) > self.bd_share_tolerance:
             raise ValueError(
-                f"implied BD share {bd:.4f} is outside "
+                f"effective BD share {bd:.4f} is outside "
                 f"{self.bd_share_target} +/- {self.bd_share_tolerance}"
             )
         return self
@@ -442,12 +496,37 @@ class WorldConfig(_Frozen):
 
     # ---------------------------------------------------------------- ambiguity analytics
 
+    def effective_cause_prior(self) -> dict[Cause, float]:
+        """``P(cause)`` in the world that is actually generated. [DERIVED]
+
+        A cause's raw ``prior`` is conditional on that cause being *possible*. Two causes
+        are card-only — ``card_expired`` has no card to expire on UPI Autopay and
+        ``route_degraded`` has no acquirer to switch — so on the UPI rail the generator
+        renormalises over what remains, lifting every surviving cause.
+
+        Reasoning about the population from the raw priors is therefore wrong, and it was
+        wrong in the worst way: measured correctly, ``GW_33`` carried **70.4%** of its mass
+        on a single cause against a 70% ceiling, while the raw-prior calculation reported a
+        comfortable 68.7%. The ambiguity guarantee is this project's central premise, so it
+        has to be checked against the distribution the world actually has.
+        """
+        out = {cause: 0.0 for cause in self.causes}
+        for rail, rail_share in self.rail_shares.items():
+            valid = {c: s.prior for c, s in self.causes.items() if rail in s.rails}
+            total = math.fsum(valid.values())
+            if total <= 0.0:
+                raise ValueError(f"rail {rail} admits no causes")
+            for cause, prior in valid.items():
+                out[cause] += rail_share * prior / total
+        return out
+
     def code_marginal(self) -> dict[ErrorCode, float]:
-        """``P(code)`` under the cause priors. [DERIVED]"""
-        out = {code: 0.0 for code in ErrorCode}
-        for cause, spec in self.causes.items():
+        """``P(code)`` under the effective cause priors. [DERIVED]"""
+        eff = self.effective_cause_prior()
+        out = {code: 0.0 for code in BASE_ERROR_CODES}
+        for cause in self.causes:
             for code, p in self.code_given_cause[cause].items():
-                out[code] += spec.prior * p
+                out[code] += eff[cause] * p
         return out
 
     def posterior_cause_given_code(self) -> dict[ErrorCode, dict[Cause, float]]:
@@ -457,14 +536,15 @@ class WorldConfig(_Frozen):
         there is no inference problem left to solve.
         """
         marginal = self.code_marginal()
+        eff = self.effective_cause_prior()
         out: dict[ErrorCode, dict[Cause, float]] = {}
-        for code in ErrorCode:
+        for code in BASE_ERROR_CODES:
             denom = marginal[code]
             if denom <= 0.0:
                 raise ValueError(f"error code {code} is unreachable under these priors")
             out[code] = {
-                cause: (spec.prior * self.code_given_cause[cause][code]) / denom
-                for cause, spec in self.causes.items()
+                cause: (eff[cause] * self.code_given_cause[cause][code]) / denom
+                for cause in self.causes
             }
         return out
 
@@ -474,18 +554,18 @@ class WorldConfig(_Frozen):
 
     def cause_entropy_bits(self) -> float:
         """``H(cause)`` — uncertainty before seeing the code. [DERIVED]"""
-        return self._entropy_bits({c: s.prior for c, s in self.causes.items()})
+        return self._entropy_bits(self.effective_cause_prior())
 
     def conditional_entropy_by_code_bits(self) -> dict[ErrorCode, float]:
         """``H(cause | code = c)`` for each code. [DERIVED]"""
         post = self.posterior_cause_given_code()
-        return {code: self._entropy_bits(post[code]) for code in ErrorCode}
+        return {code: self._entropy_bits(post[code]) for code in BASE_ERROR_CODES}
 
     def conditional_entropy_bits(self) -> float:
         """``H(cause | code)`` averaged over codes. [DERIVED]"""
         marginal = self.code_marginal()
         per_code = self.conditional_entropy_by_code_bits()
-        return math.fsum(marginal[code] * per_code[code] for code in ErrorCode)
+        return math.fsum(marginal[code] * per_code[code] for code in BASE_ERROR_CODES)
 
     def mutual_information_bits(self) -> float:
         """``I(cause; code)``. High means the code gives the answer away. [DERIVED]"""
@@ -607,24 +687,28 @@ def default_config_a() -> WorldConfig:
         #   GW_54  route_degraded vs bank_outage      (switch route vs wait it out)
         code_given_cause={
             Cause.INSUFFICIENT_FUNDS: {
-                ErrorCode.GW_05: 0.58, ErrorCode.GW_11: 0.19, ErrorCode.GW_21: 0.02,
-                ErrorCode.GW_33: 0.06, ErrorCode.GW_54: 0.05, ErrorCode.GW_91: 0.10,
+                ErrorCode.GW_05: 0.57, ErrorCode.GW_11: 0.19, ErrorCode.GW_21: 0.02,
+                ErrorCode.GW_33: 0.07, ErrorCode.GW_54: 0.05, ErrorCode.GW_91: 0.10,
             },
             Cause.CARD_EXPIRED: {
                 ErrorCode.GW_05: 0.30, ErrorCode.GW_11: 0.05, ErrorCode.GW_21: 0.55,
                 ErrorCode.GW_33: 0.00, ErrorCode.GW_54: 0.05, ErrorCode.GW_91: 0.05,
             },
             Cause.RISK_BLOCK: {
-                ErrorCode.GW_05: 0.32, ErrorCode.GW_11: 0.44, ErrorCode.GW_21: 0.04,
-                ErrorCode.GW_33: 0.12, ErrorCode.GW_54: 0.04, ErrorCode.GW_91: 0.04,
+                ErrorCode.GW_05: 0.29, ErrorCode.GW_11: 0.44, ErrorCode.GW_21: 0.04,
+                ErrorCode.GW_33: 0.15, ErrorCode.GW_54: 0.04, ErrorCode.GW_91: 0.04,
             },
             Cause.MANDATE_DEAD: {
                 ErrorCode.GW_05: 0.20, ErrorCode.GW_11: 0.08, ErrorCode.GW_21: 0.60,
                 ErrorCode.GW_33: 0.00, ErrorCode.GW_54: 0.05, ErrorCode.GW_91: 0.07,
             },
+            # GW_33 mass cut from 0.70 in Phase 3. Measured against the effective prior it
+            # put 70.4% of GW_33 on this single cause, breaching the 70% ceiling the
+            # project's premise rests on. The freed mass moves to GW_05 and GW_54, both of
+            # which an incomplete authorisation plausibly surfaces as.
             Cause.AFA_TIMEOUT: {
-                ErrorCode.GW_05: 0.10, ErrorCode.GW_11: 0.03, ErrorCode.GW_21: 0.02,
-                ErrorCode.GW_33: 0.70, ErrorCode.GW_54: 0.13, ErrorCode.GW_91: 0.02,
+                ErrorCode.GW_05: 0.16, ErrorCode.GW_11: 0.05, ErrorCode.GW_21: 0.02,
+                ErrorCode.GW_33: 0.60, ErrorCode.GW_54: 0.15, ErrorCode.GW_91: 0.02,
             },
             Cause.BANK_OUTAGE: {
                 ErrorCode.GW_05: 0.12, ErrorCode.GW_11: 0.03, ErrorCode.GW_21: 0.01,
@@ -753,9 +837,52 @@ def default_config_a() -> WorldConfig:
             min_conditional_entropy_bits=1.40,
             max_mutual_information_bits=1.00,
         ),
-        bd_share_target=0.78,
+        # On the effective prior this world is 80.7% BD, which sits directly on the
+        # commonly published ~80/20 split (CALIBRATION.md row 1). The Phase 0 target of
+        # 0.78 was fitted to the raw priors — a population the generator never realises.
+        bd_share_target=0.80,
         bd_share_tolerance=0.02,
     )
 
 
 CONFIG_A: WorldConfig = default_config_a()
+
+
+def default_config_b() -> WorldConfig:
+    """The held-out regime. Evaluated **once**, on Friday, and never tuned against.
+
+    Three structural differences from config A, chosen so that policies learned on A are
+    actively wrong here rather than merely less effective:
+
+    1. **A correlated four-bank outage.** On config A, "this bank is down, wait a few
+       hours or route around it" is a good rule. Here several banks fail together for
+       most of a day, so waiting burns horizon that the mandate does not have.
+    2. **An unseen error code.** ``GW_99`` never appears in the tuning regime, so the
+       diagnoser has no prior for it and the estimator has no cell. Whether the system
+       degrades gracefully or invents a confident diagnosis is the thing being tested.
+    3. **Inverted segment response.** Engaged customers stop answering contacts and
+       dormant ones start. A contact policy fitted on A now targets exactly the wrong
+       people, which attacks the value engine rather than the diagnoser.
+
+    Everything else — economics, bounds, ambiguity, priors — is identical to config A, so
+    a difference in results is attributable to the regime and not to a changed cost model.
+    """
+    base = default_config_a()
+    return base.model_copy(
+        update={
+            "name": "config_b",
+            # A different seed as well as a different regime: reusing A's seed would let
+            # the agent look good or bad for reasons that have nothing to do with the
+            # regime under test.
+            "seed": 20260905,
+            "regime": RegimeConfig(
+                correlated_outage_banks=4,
+                correlated_outage_hours=9.0,
+                unseen_code_share=0.12,
+                invert_segment_response=True,
+            ),
+        }
+    )
+
+
+CONFIG_B: WorldConfig = default_config_b()

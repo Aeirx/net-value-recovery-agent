@@ -12,8 +12,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
-from netvalue.world.config import CONFIG_A, WorldConfig
+from netvalue.world.banks import build_world_health
+from netvalue.world.config import CONFIG_A, Cause, Rail, WorldConfig
+from netvalue.world.generator import generate_transactions
 
 
 def check_config(cfg: WorldConfig) -> list[str]:
@@ -38,18 +41,53 @@ def check_config(cfg: WorldConfig) -> list[str]:
     return failures
 
 
+def check_world(cfg: WorldConfig, n: int) -> list[str]:
+    """Generate a small population and confirm the world still behaves.
+
+    Deliberately checks *generated data* rather than configured parameters. Phase 3 found
+    a breach that only appeared in generated data: the config-level ambiguity calculation
+    used raw cause priors while the generator renormalises them per rail, so a real
+    violation of the 70% ceiling was reported as a comfortable pass.
+    """
+    failures: list[str] = []
+    probe = cfg.model_copy(update={"n_transactions": n})
+    txns = generate_transactions(probe)
+
+    if len(txns) != n:
+        failures.append(f"generator produced {len(txns)} of {n} transactions")
+
+    leaked = [
+        t for t in txns
+        if t.rail is Rail.UPI_AUTOPAY
+        and t.true_cause in {Cause.CARD_EXPIRED, Cause.ROUTE_DEGRADED}
+    ]
+    if leaked:
+        failures.append(f"{len(leaked)} card-only causes appeared on UPI Autopay")
+
+    if any(t.expires_at <= t.first_failure_at for t in txns):
+        failures.append("a transaction expires at or before it fails")
+
+    if not build_world_health(cfg).banks.all_windows():
+        failures.append("no bank outages exist, so bank_outage is unexercised")
+
+    manifest = Path(__file__).resolve().parent.parent / "data" / "manifest.json"
+    print(f"datasets          {'frozen' if manifest.exists() else 'NOT FROZEN'}")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--n", type=int, default=50, help="transactions once Phase 3 lands")
     args = parser.parse_args()
 
-    print(f"smoke evaluation  (n={args.n} requested)")
+    print(f"smoke evaluation  (n={args.n})")
     print(f"config            {CONFIG_A.name} @ {CONFIG_A.config_hash()[:12]}")
 
     failures = check_config(CONFIG_A)
+    failures += check_world(CONFIG_A, args.n)
 
-    # Phase 3+ stages append here: generate -> run baselines -> run agent -> report.
-    print("stages            config [ok]  world [phase 3]  baselines [phase 4]  "
+    # Phase 4+ stages append here: run baselines -> run agent -> report.
+    print("stages            config [ok]  world [ok]  baselines [phase 4]  "
           "agent [phase 7]")
 
     if failures:

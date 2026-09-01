@@ -233,8 +233,16 @@ def test_a_meaningful_slice_of_the_world_is_not_worth_recovering(cfg: WorldConfi
 
 
 def test_bd_td_split_matches_calibration_target(cfg: WorldConfig) -> None:
-    """Enforced by a validator too, but asserted here so a drift shows up as a test name."""
+    """Enforced by a validator too, but asserted here so a drift shows up as a test name.
+
+    Measured on the **effective** prior. The raw priors describe a population the
+    generator never produces, because two causes are card-only and the UPI rail
+    renormalises over what remains.
+    """
+    eff = cfg.effective_cause_prior()
     bd = math.fsum(
-        s.prior for s in cfg.causes.values() if s.decline_class is DeclineClass.BD
+        eff[cause]
+        for cause, spec in cfg.causes.items()
+        if spec.decline_class is DeclineClass.BD
     )
     assert bd == pytest.approx(cfg.bd_share_target, abs=cfg.bd_share_tolerance)

@@ -98,20 +98,24 @@ def test_the_three_economically_loaded_ambiguities_survive(cfg: WorldConfig) -> 
     GW_11  insufficient_funds vs risk_block  -> timed retry vs human escalation
     GW_21  card_expired vs mandate_dead      -> a paid contact vs abandoning
     GW_54  route_degraded vs bank_outage     -> switch the route vs wait it out
+
+    Which of the pair leads is deliberately **not** asserted. Ordering is an artifact of
+    the rail mix — ``card_expired`` is card-only, so it carries less effective mass than
+    ``mandate_dead`` even though it is more likely conditional on the card rail — and it
+    flips under small, legitimate changes. What must hold is that both members carry real
+    mass, so acting on the leader without consulting history is a materially wrong call.
     """
-    expected: dict[ErrorCode, tuple[Cause, Cause]] = {
-        ErrorCode.GW_11: (Cause.INSUFFICIENT_FUNDS, Cause.RISK_BLOCK),
-        ErrorCode.GW_21: (Cause.CARD_EXPIRED, Cause.MANDATE_DEAD),
-        ErrorCode.GW_54: (Cause.ROUTE_DEGRADED, Cause.BANK_OUTAGE),
+    expected: dict[ErrorCode, set[Cause]] = {
+        ErrorCode.GW_11: {Cause.INSUFFICIENT_FUNDS, Cause.RISK_BLOCK},
+        ErrorCode.GW_21: {Cause.CARD_EXPIRED, Cause.MANDATE_DEAD},
+        ErrorCode.GW_54: {Cause.ROUTE_DEGRADED, Cause.BANK_OUTAGE},
     }
     posterior = cfg.posterior_cause_given_code()
 
-    for code, (first, second) in expected.items():
+    for code, pair in expected.items():
         ranked = sorted(posterior[code].items(), key=lambda kv: kv[1], reverse=True)
-        top_two = [cause for cause, _ in ranked[:2]]
-        assert top_two == [first, second], (
-            f"{code} should rank {first} then {second}, got {top_two}"
-        )
+        top_two = {cause for cause, _ in ranked[:2]}
+        assert top_two == pair, f"{code} should be contested by {pair}, got {top_two}"
         assert ranked[1][1] > 0.20, (
             f"{code}: runner-up {ranked[1][0]} at {ranked[1][1]:.1%} is too weak to force "
             "the agent to consult customer history"

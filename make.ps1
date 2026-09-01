@@ -8,7 +8,7 @@
 param(
     [Parameter(Position = 0)]
     [ValidateSet('help', 'install', 'test', 'lint', 'typecheck', 'check', 'smoke',
-                 'boundary', 'config', 'reproduce', 'clean')]
+                 'boundary', 'config', 'datasets', 'reproduce', 'clean')]
     [string]$Target = 'help'
 )
 
@@ -31,6 +31,7 @@ switch ($Target) {
         Write-Host 'check      - lint + typecheck + test  (what CI runs)'
         Write-Host 'boundary   - run only the world/agent boundary guard'
         Write-Host 'config     - write data/config_a.json and print its hash'
+        Write-Host 'datasets   - generate and freeze dataset_a, dataset_b and history'
         Write-Host 'smoke      - 50-transaction end-to-end smoke evaluation'
         Write-Host 'reproduce  - regenerate every number in the README from scratch'
     }
@@ -40,6 +41,7 @@ switch ($Target) {
     'typecheck' { Invoke-Step 'mypy'      { & $py -m mypy } }
     'boundary'  { Invoke-Step 'boundary'  { & $py -m pytest tests/test_boundary.py -v } }
     'config'    { Invoke-Step 'config'    { & $py scripts/write_config.py } }
+    'datasets'  { Invoke-Step 'datasets'  { & $py scripts/generate_datasets.py } }
     'smoke'     { Invoke-Step 'smoke'     { & $py scripts/smoke_eval.py --n 50 } }
     'check' {
         Invoke-Step 'ruff'   { & $py -m ruff check netvalue tests scripts }
@@ -49,7 +51,8 @@ switch ($Target) {
     'reproduce' {
         Invoke-Step 'config' { & $py scripts/write_config.py }
         Invoke-Step 'pytest' { & $py -m pytest -q }
-        Write-Host '--- Phase 3+ stages append here (datasets, baselines, agent, sweeps, report)'
+        Invoke-Step 'smoke'  { & $py scripts/smoke_eval.py --n 50 }
+        Write-Host '--- Phase 4+ stages append here (baselines, agent, sweeps, report)'
     }
     'clean' {
         Get-ChildItem -Recurse -Directory -Filter __pycache__ |
