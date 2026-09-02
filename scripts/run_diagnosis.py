@@ -142,6 +142,14 @@ def main() -> int:
     )
     llm_available = len(client.cache) > 0 or (args.live and client.has_credentials())
     if llm_available:
+        if args.live:
+            # Say what this is about to cost before it costs it. Cached entries are free,
+            # so only the uncached remainder is quoted.
+            est = estimate_cost(observations, args.model)
+            print()
+            print(f"--live on {args.model}: up to {int(est['calls'])} calls, "
+                  f"about ${est['usd']} if none are cached "
+                  f"({len(client.cache)} already in the cache).")
         arms.insert(1, ("llm", LLMDiagnoser(client)))
     else:
         reason = (

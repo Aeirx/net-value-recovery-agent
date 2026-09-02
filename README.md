@@ -53,6 +53,7 @@ Nothing calls the API without `--live`. A full pass over the 400-transaction eva
 | `claude-opus-5` | Anthropic | $3.29 |
 | `claude-sonnet-5` | Anthropic | $1.32 |
 | `grok-4.6` | xAI | $0.90 |
+| `grok-4.5` | xAI | $0.90 |
 | `claude-haiku-4-5` | Anthropic | $0.66 |
 
 Either provider works: `claude-*` reads `ANTHROPIC_API_KEY`, `grok-*` reads `XAI_API_KEY`,

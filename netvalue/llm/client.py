@@ -50,6 +50,7 @@ PRICING_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-sonnet-5": (2.0, 10.0),
     "claude-haiku-4-5": (1.0, 5.0),
     "claude-fable-5-1": (10.0, 50.0),
+    "grok-4.5": (2.0, 6.0),
     "grok-4.6": (2.0, 6.0),
     "grok-4.1-fast": (0.5, 1.5),
 }
