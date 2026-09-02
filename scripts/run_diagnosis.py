@@ -29,7 +29,12 @@ from netvalue.eval.diagnosis import (
     regret_matrix,
 )
 from netvalue.eval.runner import to_observation
-from netvalue.llm.client import PRICING_PER_MTOK, OfflineCacheMiss, StructuredClient
+from netvalue.llm.client import (
+    PRICING_PER_MTOK,
+    OfflineCacheMiss,
+    StructuredClient,
+    infer_provider,
+)
 from netvalue.world.config import CONFIG_A, CONFIG_B, Cause
 from netvalue.world.generator import load_transactions
 
@@ -68,7 +73,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", choices=["a", "b"], default="a")
     parser.add_argument("--limit", type=int, default=0, help="0 = the whole dataset")
-    parser.add_argument("--model", default="claude-opus-5")
+    parser.add_argument(
+        "--model", default="claude-opus-5",
+        help="claude-* uses ANTHROPIC_API_KEY; grok-* uses XAI_API_KEY",
+    )
     parser.add_argument(
         "--live", action="store_true",
         help="allow real API calls on a cache miss. Costs money. Off by default.",
@@ -96,7 +104,11 @@ def main() -> int:
 
     if args.estimate_cost:
         est = estimate_cost(observations, args.model)
-        print(f"A live run on {args.model} would make {int(est['calls'])} calls, "
+        provider = infer_provider(args.model)
+        if args.model not in PRICING_PER_MTOK:
+            print(f"! No cached pricing for {args.model}; the estimate below is zero.")
+        print(f"A live run on {args.model} ({provider.value}) would make "
+              f"{int(est['calls'])} calls, "
               f"~{int(est['input_tokens']):,} input + {int(est['output_tokens']):,} output "
               f"tokens, costing about **${est['usd']}**.")
         print("Cached afterwards, so it is paid once. Re-runs are free.")
@@ -133,7 +145,8 @@ def main() -> int:
         arms.insert(1, ("llm", LLMDiagnoser(client)))
     else:
         reason = (
-            "no ANTHROPIC_API_KEY and --live was passed"
+            f"--live was passed but "
+            f"{StructuredClient.credential_env_var(infer_provider(args.model))} is not set"
             if args.live
             else "cache is empty and --live was not passed"
         )

@@ -12,6 +12,9 @@ dependencies = [
     "numpy>=1.26",
     "matplotlib>=3.8",
     "anthropic>=0.40",
+    # The diagnosis layer runs on whichever API key exists. Not provider routing:
+    # one backend, chosen once at startup, behind the same structured-output contract.
+    "openai>=1.60",
 ]
 
 [project.optional-dependencies]

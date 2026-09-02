@@ -389,6 +389,22 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   plausible guess. *"We learned nothing" is the honest reading. A confident-looking default
   would silently become the result.*
 
+- **075** · The diagnosis client has **two backends**, chosen once at startup from the
+  model id. *The do-not-build list bans "model routing across providers" and this is not
+  that: no runtime routing, no fallback chain, no per-request selection. It exists because
+  the diagnosis layer has to run on whichever API key exists, and at the time of building
+  that was an xAI key rather than an Anthropic one.* Both go through the same
+  structured-output contract, so nothing downstream can tell which produced a posterior —
+  which is what keeps the ablation fair.
+
+- **076** · The provider is **inferred from the model id**, not passed separately. *One
+  less argument, and one less way to pass it wrong — a `grok-*` model with an Anthropic
+  backend would fail deep inside an SDK call rather than at startup.*
+
+- **077** · The cache key builder is **exposed** rather than inlined. *A test that rebuilt
+  the key by hand silently stopped testing the cache the moment `provider` joined the
+  digest. Two tests broke exactly that way; the fix is that there is now one definition.*
+
 ## Template for later phases
 
 ```

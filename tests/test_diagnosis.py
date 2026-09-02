@@ -327,11 +327,8 @@ def test_llm_arm_replays_from_cache_without_credentials(tmp_path: Path) -> None:
     payload = {c.value: (0.7 if c is DiagnosedCause.CARD_EXPIRED else 0.05)
                for c in DiagnosedCause}
     payload["reasoning"] = "stored expiry has passed"  # type: ignore[assignment]
-    key = request_key(
-        model=client.model,
-        prompt=evidence.build(obs),
-        params={"system": SYSTEM_PROMPT, "schema": response_schema(),
-                "effort": client.effort, "max_tokens": client.max_tokens},
+    key = client.cache_key_for(
+        system=SYSTEM_PROMPT, prompt=evidence.build(obs), schema=response_schema()
     )
     client.cache.put(key, model=client.model, payload=payload)
 
@@ -346,16 +343,36 @@ def test_llm_arm_survives_a_degenerate_response(tmp_path: Path) -> None:
     is right; inventing a confident answer would silently become the result."""
     client = StructuredClient(cache_path=tmp_path / "c.sqlite", offline=True)
     obs = _obs()
-    key = request_key(
-        model=client.model, prompt=evidence.build(obs),
-        params={"system": SYSTEM_PROMPT, "schema": response_schema(),
-                "effort": client.effort, "max_tokens": client.max_tokens},
+    key = client.cache_key_for(
+        system=SYSTEM_PROMPT, prompt=evidence.build(obs), schema=response_schema()
     )
     client.cache.put(key, model=client.model,
                      payload={c.value: 0.0 for c in DiagnosedCause})
     p = LLMDiagnoser(client).diagnose(obs)
     assert sum(p.probabilities.values()) == pytest.approx(1.0)
     assert p.entropy_bits > 2.0, "a degenerate response must read as maximal uncertainty"
+
+
+def test_provider_follows_from_the_model_id() -> None:
+    from netvalue.llm.client import Provider, infer_provider
+
+    assert infer_provider("grok-4.6") is Provider.XAI
+    assert infer_provider("claude-opus-5") is Provider.ANTHROPIC
+
+
+def test_switching_provider_changes_the_cache_key(tmp_path: Path) -> None:
+    """Two providers' answers must never collide in one cache slot."""
+    a = StructuredClient(model="claude-opus-5", cache_path=tmp_path / "c.sqlite")
+    b = StructuredClient(model="grok-4.6", cache_path=tmp_path / "c.sqlite")
+    args = {"system": "s", "prompt": "p", "schema": {"type": "object"}}
+    assert a.cache_key_for(**args) != b.cache_key_for(**args)
+
+
+def test_credential_var_matches_the_provider() -> None:
+    from netvalue.llm.client import Provider
+
+    assert StructuredClient.credential_env_var(Provider.XAI) == "XAI_API_KEY"
+    assert StructuredClient.credential_env_var(Provider.ANTHROPIC) == "ANTHROPIC_API_KEY"
 
 
 def test_response_schema_demands_all_seven_causes() -> None:
