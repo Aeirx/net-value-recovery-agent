@@ -32,6 +32,7 @@ from netvalue.eval.runner import to_observation
 from netvalue.llm.client import (
     PRICING_PER_MTOK,
     OfflineCacheMiss,
+    Provider,
     StructuredClient,
     infer_provider,
 )
@@ -105,6 +106,13 @@ def main() -> int:
     if args.estimate_cost:
         est = estimate_cost(observations, args.model)
         provider = infer_provider(args.model)
+        if provider is Provider.LOCAL:
+            print(f"{args.model} runs on your own machine: no key, no bill, no network.")
+            print(f"{int(est['calls'])} calls, ~{int(est['input_tokens']):,} input + "
+                  f"{int(est['output_tokens']):,} output tokens. Cost: $0.00.")
+            print("Budget roughly 30-60 minutes for a 7-8B model on a laptop GPU; it is")
+            print("cached afterwards, so you pay the wall-clock once.")
+            return 0
         if args.model not in PRICING_PER_MTOK:
             print(f"! No cached pricing for {args.model}; the estimate below is zero.")
         print(f"A live run on {args.model} ({provider.value}) would make "
@@ -147,9 +155,13 @@ def main() -> int:
             # so only the uncached remainder is quoted.
             est = estimate_cost(observations, args.model)
             print()
-            print(f"--live on {args.model}: up to {int(est['calls'])} calls, "
-                  f"about ${est['usd']} if none are cached "
-                  f"({len(client.cache)} already in the cache).")
+            if client.provider is Provider.LOCAL:
+                print(f"--live on {args.model}: up to {int(est['calls'])} local calls, "
+                      f"$0.00 ({len(client.cache)} already in the cache).")
+            else:
+                print(f"--live on {args.model}: up to {int(est['calls'])} calls, "
+                      f"about ${est['usd']} if none are cached "
+                      f"({len(client.cache)} already in the cache).")
         arms.insert(1, ("llm", LLMDiagnoser(client)))
     else:
         reason = (

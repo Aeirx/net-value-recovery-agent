@@ -56,10 +56,18 @@ Nothing calls the API without `--live`. A full pass over the 400-transaction eva
 | `grok-4.5` | xAI | $0.90 |
 | `claude-haiku-4-5` | Anthropic | $0.66 |
 
-Either provider works: `claude-*` reads `ANTHROPIC_API_KEY`, `grok-*` reads `XAI_API_KEY`,
-and the provider follows from the model id. Both sit behind one structured-output
-contract, so nothing downstream can tell which produced a posterior — the property that
-keeps the ablation fair.
+Or run it **entirely locally, with no key and no bill**:
+
+```bash
+ollama serve && ollama pull qwen2.5:7b-instruct
+python scripts/run_diagnosis.py --config a --live --model local/qwen2.5:7b-instruct
+```
+
+The provider follows from the model id — `claude-*` reads `ANTHROPIC_API_KEY`, `grok-*`
+reads `XAI_API_KEY`, and `local/*` talks to an OpenAI-compatible server on localhost
+(Ollama, llama.cpp, vLLM, LM Studio; override with `LOCAL_LLM_BASE_URL`). All three sit
+behind one structured-output contract, so nothing downstream can tell which produced a
+posterior — the property that keeps the ablation fair.
 
 Paid **once** — every response is cached on `sha256(model + params + prompt)` and the cache
 is committed, so re-runs are free, deterministic, and work with no network. That also means

@@ -405,6 +405,23 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   the key by hand silently stopped testing the cache the moment `provider` joined the
   digest. Two tests broke exactly that way; the fix is that there is now one definition.*
 
+- **078** · A **local** backend, selected by a `local/` model prefix, alongside the two
+  hosted ones. *Ollama and friends speak the OpenAI dialect, so this reuses the xAI path
+  rather than adding a third — a base URL and a dropped API key. It means the whole
+  pipeline can be built, tested and demonstrated with no account, no network and no bill,
+  which matters more than the money: a reviewer cloning the repo can reproduce the numbers
+  without credentials.*
+
+- **079** · JSON is extracted leniently rather than parsed strictly. *A hosted model under
+  a strict schema returns bare JSON and the extractor is a no-op. Local models wrap it in
+  fences and chat, and discarding a good answer over packaging would misattribute a
+  formatting quirk to the model's judgement.*
+
+- **080** · Cost is a property of the **provider**, not the model name. *A local model
+  bills nothing whatever it is called, and a pricing table keyed on model id would have
+  silently reported $0 for an unknown hosted model too — the same output for "free" and
+  "unpriced".*
+
 ## Template for later phases
 
 ```

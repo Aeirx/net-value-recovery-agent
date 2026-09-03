@@ -15,12 +15,17 @@ Design constraints, in the order they matter for this project:
    malformed response is retried a bounded number of times and then surfaced as an error
    rather than papered over with a plausible-looking default.
 
-**On the two backends.** The project's do-not-build list bans "model routing across
+**On the backends.** The project's do-not-build list bans "model routing across
 providers", and this is deliberately not that: there is no runtime routing, no fallback
-chain, no per-request provider selection. It is one swappable backend chosen once at
-startup, because the diagnosis layer has to run on whichever API key exists. Both
-providers are used through the same structured-output contract, so nothing downstream can
-tell which one produced a posterior — which is the property that keeps the ablation fair.
+chain, no per-request provider selection. It is one backend chosen once at startup from
+the model id, because the diagnosis layer has to run on whatever is available — an
+Anthropic key, an xAI key, or a model served on localhost with no key at all. All three go
+through the same structured-output contract, so nothing downstream can tell which produced
+a posterior, which is the property that keeps the ablation fair.
+
+The local path matters for more than cost. It means the whole pipeline can be developed,
+tested and demonstrated with no account, no network and no bill — and once the responses
+are cached, a reviewer cloning the repository gets the same numbers without either.
 """
 
 from __future__ import annotations
@@ -39,6 +44,9 @@ from netvalue.llm.cache import ResponseCache, request_key
 class Provider(StrEnum):
     ANTHROPIC = "anthropic"
     XAI = "xai"
+    #: Anything speaking the OpenAI dialect on localhost — Ollama, llama.cpp, vLLM, LM
+    #: Studio. No key, no cost, no network. Selected with a ``local/`` model prefix.
+    LOCAL = "local"
 
 
 #: Published per-million-token rates, cached 2026-09-02. Used only to report an estimate;
@@ -58,11 +66,38 @@ PRICING_PER_MTOK: dict[str, tuple[float, float]] = {
 DEFAULT_MODEL = "claude-opus-5"
 XAI_BASE_URL = "https://api.x.ai/v1"
 
+#: Ollama's OpenAI-compatible endpoint. Override with ``LOCAL_LLM_BASE_URL`` for
+#: llama.cpp, vLLM, LM Studio or a different port.
+LOCAL_BASE_URL = "http://localhost:11434/v1"
+
+#: Prefix that selects a locally-served model, e.g. ``local/qwen2.5:7b-instruct``.
+LOCAL_PREFIX = "local/"
+
 
 def infer_provider(model: str) -> Provider:
     """Provider follows from the model id. One less thing to pass, and one less way to
     pass it wrong."""
-    return Provider.XAI if model.lower().startswith("grok") else Provider.ANTHROPIC
+    lowered = model.lower()
+    if lowered.startswith(LOCAL_PREFIX):
+        return Provider.LOCAL
+    return Provider.XAI if lowered.startswith("grok") else Provider.ANTHROPIC
+
+
+def _extract_json(text: str) -> str:
+    """Pull the JSON object out of a response that may be wrapped.
+
+    Hosted models honouring a strict schema return bare JSON and this is a no-op. Locally
+    served models are markedly less obedient — a ```json fence, a sentence of preamble, or
+    a trailing note are all common — and discarding an otherwise-good answer over
+    packaging would misattribute a formatting quirk to the model's judgement.
+    """
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = stripped.split("```")[1] if "```" in stripped[3:] else stripped[3:]
+        if stripped.lstrip().lower().startswith("json"):
+            stripped = stripped.lstrip()[4:]
+    start, end = stripped.find("{"), stripped.rfind("}")
+    return stripped[start : end + 1] if 0 <= start < end else stripped.strip()
 
 
 class OfflineCacheMiss(RuntimeError):
@@ -78,6 +113,7 @@ class UsageLedger:
     """Running token and cost totals for one process."""
 
     model: str = DEFAULT_MODEL
+    provider: Provider = Provider.ANTHROPIC
     input_tokens: int = 0
     output_tokens: int = 0
     cached_calls: int = 0
@@ -96,6 +132,8 @@ class UsageLedger:
 
     @property
     def estimated_cost_usd(self) -> float:
+        if self.provider is Provider.LOCAL:
+            return 0.0  # your own electricity, not a bill
         rate_in, rate_out = PRICING_PER_MTOK.get(self.model, (0.0, 0.0))
         return (
             self.input_tokens / 1_000_000 * rate_in
@@ -105,6 +143,7 @@ class UsageLedger:
     def summary(self) -> dict[str, Any]:
         return {
             "model": self.model,
+            "provider": self.provider.value,
             "live_calls": self.live_calls,
             "cached_calls": self.cached_calls,
             "input_tokens": self.input_tokens,
@@ -137,21 +176,39 @@ class StructuredClient:
         self.effort = effort
         self.max_tokens = max_tokens
         self.max_retries = max_retries
-        self.usage = UsageLedger(model=model)
+        self.usage = UsageLedger(model=model, provider=self.provider)
         self._client: Any | None = None
 
     # ------------------------------------------------------------------ credentials
 
+    @property
+    def api_model(self) -> str:
+        """The name the server expects, with the ``local/`` selector stripped."""
+        if self.provider is Provider.LOCAL and self.model.lower().startswith(LOCAL_PREFIX):
+            return self.model[len(LOCAL_PREFIX) :]
+        return self.model
+
     @staticmethod
     def credential_env_var(provider: Provider) -> str:
-        return "XAI_API_KEY" if provider is Provider.XAI else "ANTHROPIC_API_KEY"
+        match provider:
+            case Provider.XAI:
+                return "XAI_API_KEY"
+            case Provider.LOCAL:
+                return "(none needed)"
+            case _:
+                return "ANTHROPIC_API_KEY"
 
     def has_credentials(self) -> bool:
-        if self.provider is Provider.XAI:
-            return bool(os.environ.get("XAI_API_KEY"))
-        return bool(
-            os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
-        )
+        match self.provider:
+            case Provider.LOCAL:
+                return True  # a local server needs no key
+            case Provider.XAI:
+                return bool(os.environ.get("XAI_API_KEY"))
+            case _:
+                return bool(
+                    os.environ.get("ANTHROPIC_API_KEY")
+                    or os.environ.get("ANTHROPIC_AUTH_TOKEN")
+                )
 
     # ------------------------------------------------------------------ the call
 
@@ -227,8 +284,8 @@ class StructuredClient:
 
         for attempt in range(self.max_retries):
             try:
-                if self.provider is Provider.XAI:
-                    text, usage = self._call_xai(
+                if self.provider in (Provider.XAI, Provider.LOCAL):
+                    text, usage = self._call_openai_compatible(
                         system=system, prompt=prompt, schema=schema, schema_name=schema_name
                     )
                 else:
@@ -243,7 +300,7 @@ class StructuredClient:
                 continue
 
             try:
-                parsed = json.loads(text)
+                parsed = json.loads(_extract_json(text))
             except json.JSONDecodeError as exc:
                 last_error = exc
                 self.usage.retries += 1
@@ -269,7 +326,7 @@ class StructuredClient:
         client: Any = self._client
         try:
             response = client.messages.create(
-                model=self.model,
+                model=self.api_model,
                 max_tokens=self.max_tokens,
                 # The system prompt is byte-identical across every transaction, so caching
                 # it turns ~800 tokens of per-call input into ~80.
@@ -313,21 +370,30 @@ class StructuredClient:
             int(getattr(response.usage, "output_tokens", 0) or 0),
         )
 
-    def _call_xai(
+    def _call_openai_compatible(
         self, *, system: str, prompt: str, schema: dict[str, Any], schema_name: str
     ) -> tuple[str, tuple[int, int]]:
-        """xAI speaks the OpenAI chat-completions dialect at its own base URL, with native
-        ``json_schema`` structured output — so the same contract holds."""
+        """One path for every OpenAI-dialect server.
+
+        xAI hosts it at its own base URL; Ollama, llama.cpp, vLLM and LM Studio all serve
+        the same shape on localhost. Both support ``json_schema`` structured output, so a
+        single implementation covers hosted and local — and the diagnosis layer cannot
+        tell which it is talking to, which is what keeps the arms comparable.
+        """
         import openai
 
         if self._client is None:
-            self._client = openai.OpenAI(
-                api_key=os.environ["XAI_API_KEY"], base_url=XAI_BASE_URL
-            )
+            if self.provider is Provider.LOCAL:
+                base_url = os.environ.get("LOCAL_LLM_BASE_URL", LOCAL_BASE_URL)
+                # Local servers ignore the key but the SDK insists on one being present.
+                api_key = os.environ.get("LOCAL_LLM_API_KEY", "not-needed")
+            else:
+                base_url, api_key = XAI_BASE_URL, os.environ["XAI_API_KEY"]
+            self._client = openai.OpenAI(api_key=api_key, base_url=base_url)
         client: Any = self._client
         try:
             response = client.chat.completions.create(
-                model=self.model,
+                model=self.api_model,
                 max_tokens=self.max_tokens,
                 messages=[
                     {"role": "system", "content": system},

@@ -398,3 +398,56 @@ def test_committed_report_matches_the_code() -> None:
         pytest.skip("diagnosis report not generated")
     report = json.loads(path.read_text(encoding="utf-8"))
     assert report["config_hash"] == CONFIG_A.config_hash()
+
+
+# ------------------------------------------------------------------ the local backend
+
+
+def test_local_prefix_selects_a_local_provider() -> None:
+    from netvalue.llm.client import Provider, infer_provider
+
+    assert infer_provider("local/qwen2.5:7b-instruct") is Provider.LOCAL
+    assert infer_provider("grok-4.5") is Provider.XAI
+    assert infer_provider("claude-opus-5") is Provider.ANTHROPIC
+
+
+def test_local_model_name_drops_the_selector(tmp_path: Path) -> None:
+    """The prefix is ours; the server has never heard of it."""
+    client = StructuredClient(
+        model="local/qwen2.5:7b-instruct", cache_path=tmp_path / "c.sqlite"
+    )
+    assert client.api_model == "qwen2.5:7b-instruct"
+    assert client.model == "local/qwen2.5:7b-instruct"
+
+
+def test_local_needs_no_key_and_costs_nothing(tmp_path: Path) -> None:
+    client = StructuredClient(model="local/llama3.1:8b", cache_path=tmp_path / "c.sqlite")
+    assert client.has_credentials()
+    client.usage.record(input_tokens=500_000, output_tokens=200_000, live=True)
+    assert client.usage.estimated_cost_usd == 0.0
+
+
+def test_local_and_hosted_never_share_a_cache_slot(tmp_path: Path) -> None:
+    a = StructuredClient(model="local/llama3.1:8b", cache_path=tmp_path / "c.sqlite")
+    b = StructuredClient(model="grok-4.5", cache_path=tmp_path / "c.sqlite")
+    args = {"system": "s", "prompt": "p", "schema": {"type": "object"}}
+    assert a.cache_key_for(**args) != b.cache_key_for(**args)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        '{"a": 1}',
+        '```json\n{"a": 1}\n```',
+        '```\n{"a": 1}\n```',
+        'Here is the diagnosis:\n{"a": 1}',
+        '{"a": 1}\n\nHope that helps!',
+    ],
+)
+def test_json_survives_the_wrappings_local_models_add(raw: str) -> None:
+    """A hosted model under a strict schema returns bare JSON. Local models add fences and
+    chat around it, and throwing away a good answer over packaging would misattribute a
+    formatting quirk to the model's judgement."""
+    from netvalue.llm.client import _extract_json
+
+    assert json.loads(_extract_json(raw)) == {"a": 1}
