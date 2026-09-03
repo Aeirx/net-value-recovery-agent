@@ -70,6 +70,73 @@ def estimate_cost(observations: list, model: str) -> dict[str, float]:
     }
 
 
+def list_models(model: str) -> int:
+    """Ask the provider what this key can reach. Model names drift and guessing wastes a
+    run; every OpenAI-compatible endpoint answers GET /models."""
+    import openai
+
+    client = StructuredClient(model=model, cache_path=DATA / "llm_cache.sqlite")
+    if client.provider is Provider.ANTHROPIC:
+        print("Use `ant models list` or the Anthropic console for this provider.")
+        return 0
+    if not client.has_credentials():
+        print(f"{StructuredClient.credential_env_var(client.provider)} is not set.")
+        return 1
+
+    import os
+
+    from netvalue.llm.client import GEMINI_BASE_URL, LOCAL_BASE_URL, XAI_BASE_URL
+
+    match client.provider:
+        case Provider.GEMINI:
+            base, key = GEMINI_BASE_URL, (
+                os.environ.get("GEMINI_API_KEY") or os.environ["GOOGLE_API_KEY"]
+            )
+        case Provider.LOCAL:
+            base = os.environ.get("LOCAL_LLM_BASE_URL", LOCAL_BASE_URL)
+            key = "not-needed"
+        case _:
+            base, key = XAI_BASE_URL, os.environ["XAI_API_KEY"]
+
+    try:
+        for m in openai.OpenAI(api_key=key, base_url=base).models.list():
+            print(m.id)
+    except Exception as exc:
+        print(f"could not list models: {exc}")
+        return 1
+    return 0
+
+
+def run_llm_arm(
+    diagnoser: LLMDiagnoser,
+    observations: list,
+    client: StructuredClient,
+    max_live_calls: int,
+) -> list[CausePosterior]:
+    """Diagnose as far as the quota allows, keeping everything completed.
+
+    A free tier has a daily cap, so a full pass may not fit in one day. Every successful
+    response is already written to the cache before this returns, so a later run resumes
+    from here rather than starting over — which is the whole reason the cache is keyed on
+    the request rather than on a run id.
+    """
+    out: list[CausePosterior] = []
+    for i, obs in enumerate(observations, start=1):
+        if max_live_calls and client.usage.live_calls >= max_live_calls:
+            print(f"  stopped at {i - 1}/{len(observations)}: hit --max-live-calls")
+            break
+        try:
+            out.append(diagnoser.diagnose(obs))
+        except Exception as exc:
+            print(f"  stopped at {i - 1}/{len(observations)}: {type(exc).__name__}: {exc}")
+            print("  everything completed so far is cached; re-run to resume.")
+            break
+        if i % 50 == 0:
+            print(f"  {i}/{len(observations)} "
+                  f"({client.usage.live_calls} live, {client.usage.cached_calls} cached)")
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", choices=["a", "b"], default="a")
@@ -83,7 +150,19 @@ def main() -> int:
         help="allow real API calls on a cache miss. Costs money. Off by default.",
     )
     parser.add_argument("--estimate-cost", action="store_true")
+    parser.add_argument(
+        "--max-live-calls", type=int, default=0,
+        help="stop after this many uncached calls (0 = no limit). Free tiers have daily "
+             "caps; cached work is kept, so a later run resumes where this one stopped.",
+    )
+    parser.add_argument(
+        "--list-models", action="store_true",
+        help="ask the provider which models this key can use, then exit",
+    )
     args = parser.parse_args()
+
+    if args.list_models:
+        return list_models(args.model)
 
     cfg = CONFIG_A if args.config == "a" else CONFIG_B
     dataset = DATA / f"dataset_{args.config}.jsonl"

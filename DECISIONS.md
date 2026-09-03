@@ -422,6 +422,25 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   silently reported $0 for an unknown hosted model too — the same output for "free" and
   "unpriced".*
 
+- **081** · Gemini added as a fourth backend, again reusing the OpenAI-dialect path.
+  *Google publishes an OpenAI-compatibility layer, so this is a base URL and a key. Between
+  Gemini's free tier and a local model, the entire diagnosis layer can now be produced with
+  no money at all — which is the actual constraint, not a preference.*
+
+- **082** · The client **paces itself** per provider (Gemini 6.5s between live calls).
+  *A free tier allows about ten requests a minute; without pacing the run spends its
+  retries earning 429s and finishes slower than if it had waited.*
+
+- **083** · A partial run is a **first-class outcome**, not a crash. *A free daily cap is
+  smaller than the evaluation set, so the full pass may take two days. Every response is
+  cached before the next call, `--max-live-calls` bounds a session, and a later run resumes
+  — the cache is keyed on the request, not on a run id, precisely so this works.*
+
+- **084** · When the model arm covers only part of the set, **every arm is scored on that
+  same subset**. *Comparing a partial LLM run against two complete arms would be a
+  straightforwardly invalid comparison, and the failure mode is that it still prints a
+  table that looks fine.*
+
 ## Template for later phases
 
 ```

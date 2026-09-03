@@ -56,18 +56,28 @@ Nothing calls the API without `--live`. A full pass over the 400-transaction eva
 | `grok-4.5` | xAI | $0.90 |
 | `claude-haiku-4-5` | Anthropic | $0.66 |
 
-Or run it **entirely locally, with no key and no bill**:
+Or run it for **nothing at all** — on Gemini's free tier, or on your own GPU:
 
 ```bash
-ollama serve && ollama pull qwen2.5:7b-instruct
+# Gemini free tier: throttled to stay inside the per-minute limit
+python scripts/run_diagnosis.py --config a --live --model gemini-2.5-flash
+
+# fully offline, no key, no network
+ollama pull qwen2.5:7b-instruct
 python scripts/run_diagnosis.py --config a --live --model local/qwen2.5:7b-instruct
 ```
 
-The provider follows from the model id — `claude-*` reads `ANTHROPIC_API_KEY`, `grok-*`
-reads `XAI_API_KEY`, and `local/*` talks to an OpenAI-compatible server on localhost
-(Ollama, llama.cpp, vLLM, LM Studio; override with `LOCAL_LLM_BASE_URL`). All three sit
-behind one structured-output contract, so nothing downstream can tell which produced a
-posterior — the property that keeps the ablation fair.
+The provider follows from the model id: `claude-*` → `ANTHROPIC_API_KEY`, `grok-*` →
+`XAI_API_KEY`, `gemini-*` → `GEMINI_API_KEY`, and `local/*` → an OpenAI-compatible server
+on localhost (Ollama, llama.cpp, vLLM, LM Studio; override with `LOCAL_LLM_BASE_URL`).
+All four sit behind one structured-output contract, so nothing downstream can tell which
+produced a posterior — the property that keeps the ablation fair.
+
+**Free tiers are rate-limited and capped daily**, so the runner paces itself
+(`--max-live-calls` bounds a session) and every completed response is cached before the
+next one starts. A run that stops on a quota resumes where it left off rather than
+starting over, and all arms are then scored on the same subset so a partial pass stays
+comparable. `--list-models` asks the provider what a key can actually reach.
 
 Paid **once** — every response is cached on `sha256(model + params + prompt)` and the cache
 is committed, so re-runs are free, deterministic, and work with no network. That also means

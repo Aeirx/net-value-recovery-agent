@@ -44,6 +44,7 @@ from netvalue.llm.cache import ResponseCache, request_key
 class Provider(StrEnum):
     ANTHROPIC = "anthropic"
     XAI = "xai"
+    GEMINI = "gemini"
     #: Anything speaking the OpenAI dialect on localhost — Ollama, llama.cpp, vLLM, LM
     #: Studio. No key, no cost, no network. Selected with a ``local/`` model prefix.
     LOCAL = "local"
@@ -66,12 +67,25 @@ PRICING_PER_MTOK: dict[str, tuple[float, float]] = {
 DEFAULT_MODEL = "claude-opus-5"
 XAI_BASE_URL = "https://api.x.ai/v1"
 
+#: Google's OpenAI-compatibility layer. The trailing slash is required.
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
 #: Ollama's OpenAI-compatible endpoint. Override with ``LOCAL_LLM_BASE_URL`` for
 #: llama.cpp, vLLM, LM Studio or a different port.
 LOCAL_BASE_URL = "http://localhost:11434/v1"
 
 #: Prefix that selects a locally-served model, e.g. ``local/qwen2.5:7b-instruct``.
 LOCAL_PREFIX = "local/"
+
+#: Minimum seconds between live calls, by provider. Gemini's free tier allows roughly ten
+#: requests a minute, so pacing at nine is the difference between a run that completes and
+#: one that spends its retries on 429s. Zero means "as fast as the loop goes".
+_MIN_CALL_INTERVAL_S: dict[Provider, float] = {
+    Provider.GEMINI: 6.5,
+    Provider.XAI: 0.0,
+    Provider.ANTHROPIC: 0.0,
+    Provider.LOCAL: 0.0,
+}
 
 
 def infer_provider(model: str) -> Provider:
@@ -80,7 +94,11 @@ def infer_provider(model: str) -> Provider:
     lowered = model.lower()
     if lowered.startswith(LOCAL_PREFIX):
         return Provider.LOCAL
-    return Provider.XAI if lowered.startswith("grok") else Provider.ANTHROPIC
+    if lowered.startswith("grok"):
+        return Provider.XAI
+    if lowered.startswith("gemini"):
+        return Provider.GEMINI
+    return Provider.ANTHROPIC
 
 
 def _extract_json(text: str) -> str:
@@ -168,6 +186,7 @@ class StructuredClient:
         effort: str = "low",
         max_tokens: int = 2048,
         max_retries: int = 3,
+        min_call_interval_s: float | None = None,
     ) -> None:
         self.model = model
         self.provider = provider or infer_provider(model)
@@ -177,7 +196,13 @@ class StructuredClient:
         self.max_tokens = max_tokens
         self.max_retries = max_retries
         self.usage = UsageLedger(model=model, provider=self.provider)
+        self.min_call_interval_s = (
+            _MIN_CALL_INTERVAL_S.get(self.provider, 0.0)
+            if min_call_interval_s is None
+            else min_call_interval_s
+        )
         self._client: Any | None = None
+        self._last_call_at = 0.0
 
     # ------------------------------------------------------------------ credentials
 
@@ -193,6 +218,8 @@ class StructuredClient:
         match provider:
             case Provider.XAI:
                 return "XAI_API_KEY"
+            case Provider.GEMINI:
+                return "GEMINI_API_KEY"
             case Provider.LOCAL:
                 return "(none needed)"
             case _:
@@ -204,6 +231,10 @@ class StructuredClient:
                 return True  # a local server needs no key
             case Provider.XAI:
                 return bool(os.environ.get("XAI_API_KEY"))
+            case Provider.GEMINI:
+                return bool(
+                    os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+                )
             case _:
                 return bool(
                     os.environ.get("ANTHROPIC_API_KEY")
@@ -277,14 +308,24 @@ class StructuredClient:
 
     # ------------------------------------------------------------------ backends
 
+    def _throttle(self) -> None:
+        """Hold the configured gap between live calls. Free tiers are per-minute."""
+        if self.min_call_interval_s <= 0.0:
+            return
+        wait = self.min_call_interval_s - (time.monotonic() - self._last_call_at)
+        if wait > 0:
+            time.sleep(wait)
+        self._last_call_at = time.monotonic()
+
     def _call_live(
         self, *, system: str, prompt: str, schema: dict[str, Any], schema_name: str
     ) -> tuple[dict[str, Any], tuple[int, int]]:
         last_error: Exception | None = None
 
         for attempt in range(self.max_retries):
+            self._throttle()
             try:
-                if self.provider in (Provider.XAI, Provider.LOCAL):
+                if self.provider is not Provider.ANTHROPIC:
                     text, usage = self._call_openai_compatible(
                         system=system, prompt=prompt, schema=schema, schema_name=schema_name
                     )
@@ -383,12 +424,19 @@ class StructuredClient:
         import openai
 
         if self._client is None:
-            if self.provider is Provider.LOCAL:
-                base_url = os.environ.get("LOCAL_LLM_BASE_URL", LOCAL_BASE_URL)
-                # Local servers ignore the key but the SDK insists on one being present.
-                api_key = os.environ.get("LOCAL_LLM_API_KEY", "not-needed")
-            else:
-                base_url, api_key = XAI_BASE_URL, os.environ["XAI_API_KEY"]
+            match self.provider:
+                case Provider.LOCAL:
+                    base_url = os.environ.get("LOCAL_LLM_BASE_URL", LOCAL_BASE_URL)
+                    # Local servers ignore the key but the SDK insists on one being set.
+                    api_key = os.environ.get("LOCAL_LLM_API_KEY", "not-needed")
+                case Provider.GEMINI:
+                    base_url = GEMINI_BASE_URL
+                    api_key = (
+                        os.environ.get("GEMINI_API_KEY")
+                        or os.environ["GOOGLE_API_KEY"]
+                    )
+                case _:
+                    base_url, api_key = XAI_BASE_URL, os.environ["XAI_API_KEY"]
             self._client = openai.OpenAI(api_key=api_key, base_url=base_url)
         client: Any = self._client
         try:
