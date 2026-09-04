@@ -24,6 +24,7 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
+from netvalue.agent.diagnose.rules import RulesDiagnoser
 from netvalue.eval.bootstrap import Interval, cluster_bootstrap
 from netvalue.eval.metrics import PolicyMetrics, paired_deltas, summarise, win_rate
 from netvalue.eval.report import (
@@ -33,13 +34,14 @@ from netvalue.eval.report import (
     thesis_line,
     write_html,
 )
-from netvalue.eval.runner import EpisodeResult, EpisodeRunner
+from netvalue.eval.runner import EpisodeResult, EpisodeRunner, to_observation
 from netvalue.policies.max_recovery import (
     MaxRecoveryOraclePolicy,
     MaxRecoveryPolicy,
     build_truth,
 )
 from netvalue.policies.naive import NaiveRetryPolicy
+from netvalue.policies.net_value import build as build_agent
 from netvalue.policies.no_retry import NoRetryPolicy
 from netvalue.world.banks import build_world_health
 from netvalue.world.config import CONFIG_A, CONFIG_B, WorldConfig
@@ -53,20 +55,31 @@ REPORTS = REPO_ROOT / "reports"
 CEILING = "max_recovery"
 
 
-def build_policies(cfg: WorldConfig, truth: dict) -> list:
+def build_policies(cfg: WorldConfig, truth: dict, observations: list, depth: int) -> list:
+    """Every strategy behind one protocol, so the harness cannot tell them apart.
+
+    The agent is constructed fresh per replication like the rest: it carries per-transaction
+    belief state, and reusing one across replications would leak what it learned in an
+    earlier world into a later one.
+    """
     return [
         NoRetryPolicy(),
         NaiveRetryPolicy(),
         MaxRecoveryPolicy(cfg, truth),
         MaxRecoveryOraclePolicy(cfg, truth),
+        build_agent(RulesDiagnoser(), depth=depth, reference_observations=observations),
     ]
 
 
 def run(
-    cfg: WorldConfig, dataset: Path, replications: int
+    cfg: WorldConfig, dataset: Path, replications: int, depth: int = 4
 ) -> tuple[dict[str, list[EpisodeResult]], dict[str, PolicyMetrics]]:
     txns = load_transactions(dataset)
     truth = build_truth(txns)
+    observations = [
+        to_observation(t, now=t.first_failure_at, attempt_number=1, contacts_used=0, prior=())
+        for t in txns
+    ]
 
     results: dict[str, list[EpisodeResult]] = {}
     for replication in range(replications):
@@ -74,7 +87,7 @@ def run(
         # is what makes the deltas paired rather than two independent samples.
         health = build_world_health(cfg, replication)
         runner = EpisodeRunner(cfg, health, replication)
-        for policy in build_policies(cfg, truth):
+        for policy in build_policies(cfg, truth, observations, depth):
             results.setdefault(policy.name, []).extend(runner.run(policy, txns))
 
     metrics = {name: summarise(name, rows) for name, rows in results.items()}
@@ -89,6 +102,11 @@ def main() -> int:
         help="seeded worlds; each is faced identically by every policy",
     )
     parser.add_argument("--resamples", type=int, default=10_000)
+    parser.add_argument(
+        "--depth", type=int, default=4,
+        help="value-engine lookahead. Depth 1 is the greedy rule; 4 is the first depth "
+             "that can see a contact after the debit budget is spent.",
+    )
     args = parser.parse_args()
 
     cfg = CONFIG_A if args.config == "a" else CONFIG_B
@@ -101,8 +119,10 @@ def main() -> int:
         print("!! config B is the held-out regime. It is meant to be run ONCE, in Phase 8,")
         print("!! and never tuned against. If this is not that run, stop.\n")
 
-    results, metrics = run(cfg, dataset, args.replications)
-    order = ["no_retry", "naive_retry", "max_recovery", "max_recovery_oracle"]
+    results, metrics = run(cfg, dataset, args.replications, args.depth)
+    order = [
+        "no_retry", "naive_retry", "max_recovery", "net_value", "max_recovery_oracle",
+    ]
     rows = [metrics[name] for name in order if name in metrics]
 
     print(f"# Baselines — config {args.config.upper()}")

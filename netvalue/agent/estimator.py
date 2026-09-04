@@ -54,6 +54,11 @@ _ROOT_BETA = 1.0
 #: interval is a deterministic function of the counts.
 _CI_DRAWS = 4_000
 
+#: Memo for interval endpoints, keyed on the rounded posterior. Two reasons it matters:
+#: the search asks for the same posterior repeatedly, and ``low`` and ``high`` are separate
+#: properties that would otherwise each redraw the whole sample.
+_INTERVAL_MEMO: dict[tuple[float, float], tuple[float, float]] = {}
+
 
 @dataclass(frozen=True, slots=True)
 class Estimate:
@@ -86,9 +91,14 @@ class Estimate:
     def _interval(self) -> tuple[float, float]:
         if self.alpha <= 0.0 or self.beta <= 0.0:
             return (self.p, self.p)
-        draws = np.random.default_rng(0).beta(self.alpha, self.beta, _CI_DRAWS)
-        low, high = np.quantile(draws, [0.05, 0.95])
-        return (float(low), float(high))
+        key = (round(self.alpha, 6), round(self.beta, 6))
+        cached = _INTERVAL_MEMO.get(key)
+        if cached is None:
+            draws = np.random.default_rng(0).beta(self.alpha, self.beta, _CI_DRAWS)
+            low, high = np.quantile(draws, [0.05, 0.95])
+            cached = (float(low), float(high))
+            _INTERVAL_MEMO[key] = cached
+        return cached
 
     @property
     def effective_n(self) -> float:

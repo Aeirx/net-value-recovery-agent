@@ -35,7 +35,7 @@ from datetime import datetime, timedelta
 from netvalue.agent.belief import Belief
 from netvalue.agent.diagnose.schema import DiagnosedCause
 from netvalue.agent.economics import CONTACT_ACTIONS, Economics
-from netvalue.agent.estimator import RecoveryEstimator
+from netvalue.agent.estimator import Estimate, RecoveryEstimator
 from netvalue.agent.features import days_to_nearest_salary_day
 from netvalue.agent.observation import Observation, ObservedRail
 from netvalue.agent.policy import Action, ActionKind
@@ -54,10 +54,20 @@ _ESCALATION_FIXES = frozenset({DiagnosedCause.RISK_BLOCK})
 #: Causes no debit can ever fix, however well timed.
 _DEBIT_CANNOT_FIX = frozenset({DiagnosedCause.MANDATE_DEAD, DiagnosedCause.CARD_EXPIRED})
 
-#: How far the belief is allowed to move the estimator's number. A ratio far from 1 means
-#: this transaction looks nothing like the log average, and the estimator is being asked to
-#: extrapolate — so the adjustment is bounded rather than trusted without limit.
-_REWEIGHT_CLIP = (0.15, 8.0)
+#: How far the belief is allowed to move the estimator's number, and the bound is
+#: **deliberately asymmetric**.
+#:
+#: Upward is capped: a ratio far above 1 means this transaction looks nothing like the log
+#: average and the estimator is being asked to extrapolate, so optimism is bounded.
+#: Downward is not capped at all, because a small ratio is not extrapolation — it is the
+#: belief saying this action cannot address what it thinks is wrong, and that is logic
+#: rather than a guess. A symmetric floor of 0.15 was a real bug: with the belief at ~100%
+#: card_expired the engine still preferred a route switch, an action that cannot possibly
+#: work, because the floor kept its probability at 15% of the marginal instead of near zero.
+#:
+#: The asymmetry also fails safe. Under-estimating makes the agent decline to spend;
+#: over-estimating makes it spend on a false hope.
+_REWEIGHT_CLIP = (0.0, 8.0)
 
 #: Fallback reference mix, used only when no diagnoser sample is supplied. Deliberately
 #: near-uniform: if the agent does not know the population it should not pretend to.
@@ -74,8 +84,18 @@ class Candidate:
     cost: float
     continuation: float
     q_value: float
-    p_estimate_low: float = 0.0
-    p_estimate_high: float = 0.0
+    #: The raw estimate behind ``p_success``. Held rather than unpacked because resolving
+    #: its credible interval costs a sampling pass, and the search never reads it — only
+    #: the audit log does, for the one action actually chosen.
+    estimate: Estimate | None = None
+
+    @property
+    def p_estimate_low(self) -> float:
+        return self.estimate.low if self.estimate else 0.0
+
+    @property
+    def p_estimate_high(self) -> float:
+        return self.estimate.high if self.estimate else 0.0
 
     @property
     def immediate(self) -> float:
@@ -232,7 +252,7 @@ class ValueEngine:
 
     def _p_success(
         self, observation: Observation, state: DecisionState, action: Action
-    ) -> tuple[float, float, float]:
+    ) -> tuple[float, Estimate]:
         """``P(this action recovers the payment)``: the estimator's marginal, reweighted by
         how unusual this transaction's belief is.
 
@@ -245,7 +265,7 @@ class ValueEngine:
             observation, action.kind, contact_index=state.contacts_used + 1
         )
         p = est.p * self._reweight(state.belief, action.kind)
-        return min(max(p, 0.0), 1.0), est.low, est.high
+        return min(max(p, 0.0), 1.0), est
 
     # ------------------------------------------------------------------ the recursion
 
@@ -298,7 +318,7 @@ class ValueEngine:
                 )
                 continue
 
-            p, low, high = self._p_success(observation, state, action)
+            p, estimate = self._p_success(observation, state, action)
             cost = economics.cost_of(action.kind, contact_index=state.contacts_used + 1)
 
             continuation = 0.0
@@ -317,8 +337,7 @@ class ValueEngine:
                     cost=cost,
                     continuation=continuation,
                     q_value=p * value - cost + continuation,
-                    p_estimate_low=low,
-                    p_estimate_high=high,
+                    estimate=estimate,
                 )
             )
         return out
