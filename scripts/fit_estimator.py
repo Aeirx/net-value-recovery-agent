@@ -30,6 +30,9 @@ from netvalue.agent.estimator import (
     split_by_transaction,
 )
 from netvalue.agent.features import BACKOFF_LEVELS, from_history_row
+from netvalue.env import load_env
+
+load_env()
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]

@@ -22,3 +22,9 @@ CLAUDE.md
 # the competition is open, and these spell out the thesis, the baseline structure
 # and the roadmap in full.
 razorpay-buildathon-plan*.md
+
+# Real API credentials. `.env.example` is the tracked template and stays in;
+# this file never does. tests/test_env.py asserts that cannot silently reverse.
+.env
+.env.local
+.env.*.local

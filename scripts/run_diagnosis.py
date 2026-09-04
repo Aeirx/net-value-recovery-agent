@@ -22,6 +22,7 @@ from netvalue.agent.diagnose.llm import SYSTEM_PROMPT, LLMDiagnoser
 from netvalue.agent.diagnose.oracle import OracleDiagnoser, truth_map
 from netvalue.agent.diagnose.rules import RulesDiagnoser
 from netvalue.agent.diagnose.schema import CausePosterior
+from netvalue.env import load_env
 from netvalue.eval.diagnosis import (
     confidence_reliability,
     evaluate,
@@ -38,6 +39,8 @@ from netvalue.llm.client import (
 )
 from netvalue.world.config import CONFIG_A, CONFIG_B, Cause
 from netvalue.world.generator import load_transactions
+
+load_env()
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]

@@ -1,20 +1,20 @@
 {
   "arms": [
     {
-      "accuracy": 0.6333,
-      "confidence_ece": 0.2055,
+      "accuracy": 0.5667,
+      "confidence_ece": 0.2619,
       "diagnoser": "rules",
-      "mean_confidence": 0.5917,
-      "mean_entropy_bits": 1.643,
-      "mean_regret_inr": 40.65,
-      "n": 60,
-      "top2_accuracy": 0.7667,
-      "total_regret_inr": 2438.75,
+      "mean_confidence": 0.5763,
+      "mean_entropy_bits": 1.684,
+      "mean_regret_inr": 42.86,
+      "n": 30,
+      "top2_accuracy": 0.7,
+      "total_regret_inr": 1285.88,
       "worst_confusions": [
         {
           "diagnosed": "insufficient_funds",
-          "n": 3,
-          "regret_inr": 646.8,
+          "n": 2,
+          "regret_inr": 431.2,
           "true": "route_degraded"
         },
         {
@@ -22,30 +22,30 @@
           "n": 1,
           "regret_inr": 411.03,
           "true": "risk_block"
-        },
-        {
-          "diagnosed": "insufficient_funds",
-          "n": 1,
-          "regret_inr": 411.03,
-          "true": "risk_block"
-        },
-        {
-          "diagnosed": "afa_timeout",
-          "n": 1,
-          "regret_inr": 411.03,
-          "true": "risk_block"
-        },
-        {
-          "diagnosed": "insufficient_funds",
-          "n": 2,
-          "regret_inr": 226.85,
-          "true": "card_expired"
         },
         {
           "diagnosed": "bank_outage",
           "n": 1,
           "regret_inr": 215.6,
           "true": "route_degraded"
+        },
+        {
+          "diagnosed": "route_degraded",
+          "n": 1,
+          "regret_inr": 113.72,
+          "true": "card_expired"
+        },
+        {
+          "diagnosed": "insufficient_funds",
+          "n": 1,
+          "regret_inr": 113.42,
+          "true": "card_expired"
+        },
+        {
+          "diagnosed": "route_degraded",
+          "n": 1,
+          "regret_inr": 0.3,
+          "true": "insufficient_funds"
         }
       ]
     },
@@ -56,7 +56,7 @@
       "mean_confidence": 1.0,
       "mean_entropy_bits": 0.0,
       "mean_regret_inr": 0.0,
-      "n": 60,
+      "n": 30,
       "top2_accuracy": 1.0,
       "total_regret_inr": 0.0,
       "worst_confusions": []
@@ -66,70 +66,58 @@
   "confusion": {
     "oracle": {
       "afa_timeout": {
-        "afa_timeout": 11
+        "afa_timeout": 5
       },
       "bank_outage": {
-        "bank_outage": 4
+        "bank_outage": 2
       },
       "card_expired": {
-        "card_expired": 7
+        "card_expired": 4
       },
       "insufficient_funds": {
-        "insufficient_funds": 24
-      },
-      "mandate_dead": {
-        "mandate_dead": 4
+        "insufficient_funds": 14
       },
       "risk_block": {
-        "risk_block": 4
+        "risk_block": 2
       },
       "route_degraded": {
-        "route_degraded": 6
+        "route_degraded": 3
       }
     },
     "rules": {
       "afa_timeout": {
-        "afa_timeout": 7,
+        "afa_timeout": 1,
         "bank_outage": 1,
         "insufficient_funds": 2,
         "route_degraded": 1
       },
       "bank_outage": {
-        "bank_outage": 3,
+        "bank_outage": 1,
         "route_degraded": 1
       },
       "card_expired": {
-        "card_expired": 4,
-        "insufficient_funds": 2,
+        "card_expired": 2,
+        "insufficient_funds": 1,
         "route_degraded": 1
       },
       "insufficient_funds": {
-        "afa_timeout": 1,
         "bank_outage": 1,
-        "insufficient_funds": 19,
-        "route_degraded": 3
-      },
-      "mandate_dead": {
-        "bank_outage": 1,
-        "insufficient_funds": 1,
-        "mandate_dead": 2
+        "insufficient_funds": 12,
+        "route_degraded": 1
       },
       "risk_block": {
-        "afa_timeout": 1,
         "bank_outage": 1,
-        "insufficient_funds": 1,
         "risk_block": 1
       },
       "route_degraded": {
         "bank_outage": 1,
-        "insufficient_funds": 3,
-        "route_degraded": 2
+        "insufficient_funds": 2
       }
     }
   },
   "llm_usage": null,
   "model": null,
-  "n": 60,
+  "n": 30,
   "regret_matrix": {
     "afa_timeout->bank_outage": 0.0,
     "afa_timeout->card_expired": 332.2,

@@ -275,6 +275,8 @@ contain no cause field, and its population is asserted disjoint from the evaluat
 ```bash
 python -m pip install -e ".[dev]"
 
+cp .env.example .env      # then paste whichever API key you have (optional)
+
 make check         # ruff + mypy strict + pytest        (.\make.ps1 check on Windows)
 make config        # write data/config_a.json, print the ambiguity and economics tables
 make boundary      # the credibility guard, on its own

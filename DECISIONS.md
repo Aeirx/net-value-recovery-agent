@@ -441,6 +441,20 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   straightforwardly invalid comparison, and the failure mode is that it still prints a
   table that looks fine.*
 
+- **085** · Credentials come from a gitignored `.env`, with `.env.example` tracked as
+  the template. *A secret committed to a public repository is not undone by deleting it —
+  the history keeps it and the key has to be rotated — so the arrangement is asserted by
+  tests rather than assumed: `.env` ignored, template tracked, template provably empty.*
+
+- **086** · The loader is twenty lines rather than a dependency, and **the shell always
+  wins** over the file. *CI configuration must not be silently replaceable by a
+  checked-out file, and one command should be overridable without editing anything.* A
+  blank value never shadows a real one either, or copying the template would break a
+  working setup.
+
+- **087** · `load_env` returns key **names**, never values. *A stray print of the return
+  value would otherwise leak a key into a CI log or a screen recording of the demo.*
+
 ## Template for later phases
 
 ```
