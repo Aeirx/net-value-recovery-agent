@@ -455,6 +455,17 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
 - **087** · `load_env` returns key **names**, never values. *A stray print of the return
   value would otherwise leak a key into a CI log or a screen recording of the demo.*
 
+- **088** · A 429 is **classified**, not blindly retried. *An exhausted daily quota and
+  a per-minute burst limit arrive as the same status code and mean completely different
+  things — one clears in seconds, the other tomorrow. Conflating them was a real bug: the
+  Gemini free tier running dry surfaced as `MalformedResponse`, which sends you hunting a
+  parsing fault that does not exist.* The message now names the cap and the way out.
+
+- **089** · Gemini's free tier is **20 requests per day, per model** — measured, not
+  guessed. *Published summaries claimed 250 and 1,500; the API's own quota violation says
+  20. A full 400-transaction pass is therefore 20 days on one model, so the free tier is
+  useful for validating the pipeline and not for producing the result.*
+
 ## Template for later phases
 
 ```

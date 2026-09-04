@@ -451,3 +451,33 @@ def test_json_survives_the_wrappings_local_models_add(raw: str) -> None:
     from netvalue.llm.client import _extract_json
 
     assert json.loads(_extract_json(raw)) == {"a": 1}
+
+
+# ------------------------------------------------- rate limits vs exhausted quotas
+
+
+def test_a_daily_quota_is_not_treated_as_a_transient_limit() -> None:
+    """Both arrive as HTTP 429 and mean completely different things: a burst limit clears
+    in seconds, a daily quota clears tomorrow. Conflating them was a real bug — an
+    exhausted Gemini free tier surfaced as `MalformedResponse`, which sends you hunting
+    for a parsing fault that does not exist."""
+    from netvalue.llm.client import QuotaExhausted, _classify_rate_limit
+
+    daily = _classify_rate_limit(
+        Exception(
+            "429 Quota exceeded for metric: generate_content_free_tier_requests, "
+            "limit: 20, quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier'"
+        )
+    )
+    assert isinstance(daily, QuotaExhausted)
+    assert "20" in str(daily), "the cap should be surfaced, not just the fact of one"
+    assert "local" in str(daily), "the message should name the way out"
+
+
+def test_a_burst_limit_stays_retryable() -> None:
+    from netvalue.llm.client import _classify_rate_limit, _Retryable
+
+    assert isinstance(
+        _classify_rate_limit(Exception("429 too many requests per minute, retry in 5s")),
+        _Retryable,
+    )

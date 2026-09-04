@@ -126,6 +126,17 @@ class MalformedResponse(RuntimeError):
     """The model returned something that is not the requested structure."""
 
 
+class QuotaExhausted(RuntimeError):
+    """The provider refused on quota, and waiting will not help.
+
+    Distinguished from a transient rate limit because the responses are identical in
+    status code and completely different in meaning: a per-minute limit clears in
+    seconds, a per-day quota clears tomorrow. Reporting the second as a malformed
+    response — which is what happened before this existed — sends you looking for a
+    parsing bug that is not there.
+    """
+
+
 @dataclass
 class UsageLedger:
     """Running token and cost totals for one process."""
@@ -333,6 +344,9 @@ class StructuredClient:
                     text, usage = self._call_anthropic(
                         system=system, prompt=prompt, schema=schema, schema_name=schema_name
                     )
+            except QuotaExhausted:
+                self.usage.errors += 1
+                raise
             except _Retryable as exc:
                 cause = exc.__cause__
                 last_error = cause if isinstance(cause, Exception) else exc
@@ -389,7 +403,9 @@ class StructuredClient:
                 },
                 thinking={"type": "adaptive"},
             )
-        except (anthropic.RateLimitError, anthropic.APIConnectionError) as exc:
+        except anthropic.RateLimitError as exc:
+            raise _classify_rate_limit(exc) from exc
+        except anthropic.APIConnectionError as exc:
             raise _Retryable from exc
         except anthropic.APIStatusError as exc:
             if exc.status_code >= 500:
@@ -456,7 +472,9 @@ class StructuredClient:
                     },
                 },
             )
-        except (openai.RateLimitError, openai.APIConnectionError) as exc:
+        except openai.RateLimitError as exc:
+            raise _classify_rate_limit(exc) from exc
+        except openai.APIConnectionError as exc:
             raise _Retryable from exc
         except openai.APIStatusError as exc:
             if exc.status_code >= 500:
@@ -480,3 +498,28 @@ class StructuredClient:
 
 class _Retryable(RuntimeError):
     """Internal marker: this failure is worth another attempt after a backoff."""
+
+
+#: Substrings that mark a 429 as a *daily* quota rather than a per-minute burst limit.
+#: Both arrive as HTTP 429 with the same shape, and only one of them is worth waiting out.
+_DAILY_QUOTA_MARKERS = ("perday", "per day", "requests_per_day", "rpd", "free_tier_requests")
+
+
+def _classify_rate_limit(exc: Exception) -> Exception:
+    """Turn a 429 into either something to retry or something to stop for."""
+    text = str(exc).lower()
+    if any(marker in text for marker in _DAILY_QUOTA_MARKERS):
+        limit = ""
+        for token in ("quotavalue", "limit:"):
+            if token in text:
+                tail = text.split(token, 1)[1][:24].strip(" ':\"")
+                digits = "".join(c for c in tail if c.isdigit())
+                if digits:
+                    limit = f" (cap: {digits} per day)"
+                break
+        return QuotaExhausted(
+            f"the provider's daily quota is spent{limit}; waiting will not help today. "
+            f"Everything completed so far is cached, so a run tomorrow resumes from there "
+            f"— or switch to a local model, which has no quota at all."
+        )
+    return _Retryable()

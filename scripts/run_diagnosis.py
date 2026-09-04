@@ -32,7 +32,6 @@ from netvalue.eval.diagnosis import (
 from netvalue.eval.runner import to_observation
 from netvalue.llm.client import (
     PRICING_PER_MTOK,
-    OfflineCacheMiss,
     Provider,
     StructuredClient,
     infer_provider,
@@ -134,9 +133,11 @@ def run_llm_arm(
             print(f"  stopped at {i - 1}/{len(observations)}: {type(exc).__name__}: {exc}")
             print("  everything completed so far is cached; re-run to resume.")
             break
-        if i % 50 == 0:
+        every = 10 if len(observations) <= 120 else 50
+        if i % every == 0 or i == len(observations):
             print(f"  {i}/{len(observations)} "
-                  f"({client.usage.live_calls} live, {client.usage.cached_calls} cached)")
+                  f"({client.usage.live_calls} live, {client.usage.cached_calls} cached)",
+                  flush=True)
     return out
 
 
@@ -146,7 +147,9 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=0, help="0 = the whole dataset")
     parser.add_argument(
         "--model", default="claude-opus-5",
-        help="claude-* uses ANTHROPIC_API_KEY; grok-* uses XAI_API_KEY",
+        help="claude-* -> ANTHROPIC_API_KEY, grok-* -> XAI_API_KEY, "
+             "gemini-* -> GEMINI_API_KEY, local/* -> a server on localhost. "
+             "Use --list-models: names retire.",
     )
     parser.add_argument(
         "--live", action="store_true",
@@ -157,6 +160,11 @@ def main() -> int:
         "--max-live-calls", type=int, default=0,
         help="stop after this many uncached calls (0 = no limit). Free tiers have daily "
              "caps; cached work is kept, so a later run resumes where this one stopped.",
+    )
+    parser.add_argument(
+        "--pace", type=float, default=None,
+        help="seconds between live calls. Defaults per provider (Gemini 6.5s, for a "
+             "~10 RPM free tier). Lower it if your tier allows more.",
     )
     parser.add_argument(
         "--list-models", action="store_true",
@@ -229,6 +237,7 @@ def main() -> int:
         model=args.model,
         cache_path=DATA / "llm_cache.sqlite",
         offline=not args.live,
+        min_call_interval_s=args.pace,
     )
     llm_available = len(client.cache) > 0 or (args.live and client.has_credentials())
     if llm_available:
@@ -244,7 +253,6 @@ def main() -> int:
                 print(f"--live on {args.model}: up to {int(est['calls'])} calls, "
                       f"about ${est['usd']} if none are cached "
                       f"({len(client.cache)} already in the cache).")
-        arms.insert(1, ("llm", LLMDiagnoser(client)))
     else:
         reason = (
             f"--live was passed but "
@@ -255,18 +263,36 @@ def main() -> int:
         print(f"\n! LLM arm skipped: {reason}.")
         print("! Run with --estimate-cost to price it, then --live to populate the cache.")
 
+    # The model arm runs first and may stop short — a free tier's daily cap is smaller
+    # than the evaluation set, and a model name can retire under you. Every other arm is
+    # then scored on exactly the transactions it covered, so a partial run is compared
+    # like-for-like instead of against two complete arms.
+    llm_posteriors: list[CausePosterior] = []
+    if llm_available:
+        print(f"\nrunning the llm arm over {len(observations)} transactions...")
+        llm_posteriors = run_llm_arm(
+            LLMDiagnoser(client), observations, client, args.max_live_calls
+        )
+        print(f"LLM usage: {json.dumps(client.usage.summary())}")
+
+    covered = len(llm_posteriors) if llm_available else len(observations)
+    if llm_available and covered == 0:
+        print("\n! The llm arm produced nothing; reporting the other arms only.")
+        covered = len(observations)
+    elif llm_available and covered < len(observations):
+        print(f"\n! Scoring every arm on the first {covered} of {len(observations)} "
+              f"transactions, so the comparison stays like-for-like.")
+
     reports = []
+    if llm_posteriors:
+        reports.append(evaluate(cfg, "llm", llm_posteriors, truths[:covered]))
     for name, diagnoser in arms:
-        try:
-            posteriors: list[CausePosterior] = [
-                diagnoser.diagnose(o) for o in observations  # type: ignore[attr-defined]
-            ]
-        except OfflineCacheMiss as exc:
-            print(f"\n! {name} arm incomplete: {exc}")
-            continue
-        reports.append(evaluate(cfg, name, posteriors, truths))
-        if name == "llm":
-            print(f"\nLLM usage: {json.dumps(client.usage.summary())}")
+        posteriors: list[CausePosterior] = [
+            diagnoser.diagnose(o)  # type: ignore[attr-defined]
+            for o in observations[:covered]
+        ]
+        reports.append(evaluate(cfg, name, posteriors, truths[:covered]))
+    reports.sort(key=lambda r: {"rules": 0, "llm": 1, "oracle": 2}.get(r.diagnoser, 3))
 
     print("\n| Diagnoser | Accuracy | Top-2 | Mean regret ₹ | Total regret ₹ | "
           "Confidence | Entropy bits | Confidence ECE |")
