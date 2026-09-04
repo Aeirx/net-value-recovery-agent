@@ -383,13 +383,41 @@ def test_response_schema_demands_all_seven_causes() -> None:
     assert schema["additionalProperties"] is False
 
 
-def test_system_prompt_carries_no_calibrated_priors() -> None:
-    """Handing the model the world's P(cause | code) table would be the same tautology as
-    letting the agent import the simulator."""
+def test_system_prompt_carries_base_rates_but_not_the_answer_sheet() -> None:
+    """The line between population knowledge and the answer sheet.
+
+    Base rates are legitimate and both arms have them: the rules table encodes the same
+    population in its code priors, and withholding them from only the model made the
+    ablation unfair — it scored 30.1% against 65.5%, and reweighting its cached posteriors
+    by the true mix recovered half that gap.
+
+    A per-code cause distribution is different. That is ``P(cause | code)`` — the exact
+    quantity the diagnosis problem exists to infer — and putting it in the prompt would be
+    the same tautology as letting the agent import the simulator.
+    """
     text = SYSTEM_PROMPT
-    assert "0.5" not in text and "%" not in text.replace("90%", "").replace("60%", "")
+    assert "insufficient_funds  38 in 100" in text, "base rates should be stated"
     for code in ("GW_05", "GW_11", "GW_21", "GW_33", "GW_54", "GW_91"):
         assert code not in text, f"{code} prior leaked into the prompt"
+
+
+def test_the_stated_base_rates_match_the_world() -> None:
+    """A merchant's estimate of its own decline mix should be roughly right, or the arm is
+    being handed a misleading prior rather than a fair one."""
+    import re
+
+    from netvalue.world.config import Cause
+
+    stated = {
+        m.group(1): int(m.group(2)) / 100.0
+        for m in re.finditer(r"(\w+)\s+(\d+) in 100", SYSTEM_PROMPT)
+    }
+    effective = CONFIG_A.effective_cause_prior()
+    assert set(stated) == {c.value for c in Cause}, "every cause needs a stated rate"
+    assert abs(sum(stated.values()) - 1.0) < 0.02
+    for name, value in stated.items():
+        truth = effective[Cause(name)]
+        assert abs(value - truth) < 0.04, f"{name}: prompt says {value:.2f}, world {truth:.2f}"
 
 
 def test_committed_report_matches_the_code() -> None:

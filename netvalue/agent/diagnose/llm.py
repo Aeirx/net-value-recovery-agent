@@ -17,10 +17,17 @@ Three properties keep the experiment honest:
   a plausible default that would quietly become the result.
 * **Cached on the exact request.** A diagnosis is paid for once. Re-runs are free,
   deterministic, and work with no network.
-* **The prompt carries no calibrated priors.** It describes what each cause *is* and what
-  fixes it — domain knowledge from a gateway's error reference — never the world's
-  ``P(cause | code)`` table. Handing the model the answer sheet in the system prompt would
-  be the same tautology as letting the agent import the simulator.
+* **The prompt carries the merchant's own base rates, and nothing finer.** It states how
+  often each cause occurs across this merchant's failures — the same population knowledge
+  the rules arm's code priors encode — and describes what each cause is and what fixes it.
+  It does **not** carry the world's ``P(cause | code)`` table, which would be the answer
+  sheet.
+
+  This was added after measuring the gap. Without base rates the model scored 30.1% against
+  the rules table's 65.5%, and reweighting its cached posteriors by the true mix lifted it
+  to 45.6% — so roughly half the deficit was a missing prior rather than bad evidence
+  reading. Giving one arm population knowledge and withholding it from the other was not a
+  fair ablation; both have it now. Recorded as DECISION-100.
 """
 
 from __future__ import annotations
@@ -78,6 +85,22 @@ switch, so those two causes are impossible there. Assign them zero.
 
 If the error code is one you do not recognise, say so in your reasoning and spread your
 probability according to the customer evidence alone. Do not invent a meaning for it.
+
+WHAT FAILS, AND HOW OFTEN
+
+Across this merchant's own failed renewals, roughly:
+
+  insufficient_funds  38 in 100      bank_outage      12 in 100
+  afa_timeout         17 in 100      card_expired      8 in 100
+  risk_block          11 in 100      mandate_dead      8 in 100
+  route_degraded       7 in 100
+
+Use this as your starting point and let the evidence move you off it. It matters because
+the failure that dominates in practice is the dullest one - customers who simply did not
+have the money - while the codes that *sound* most diagnostic are timeouts and gateway
+errors, which are comparatively rare. Reading a timeout and concluding "infrastructure"
+without checking the customer's payment history is the single commonest way to be wrong
+here.
 
 CALIBRATION MATTERS MORE THAN CONFIDENCE
 

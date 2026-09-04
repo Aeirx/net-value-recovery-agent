@@ -475,6 +475,75 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   narrow rules win is not evidence that rules beat models. Report the asymmetry beside
   the result rather than leaving a judge to find it.
 
+## Phase 7 — the value engine · 2026-09-02
+
+- **091** · Stopping is **finite-horizon backward induction**, not a one-step threshold.
+  *A greedy rule cannot represent option value at all: a cheap wait whose entire worth is
+  that it unlocks a later action scores zero to it.* The continuation term falls out of the
+  recursion rather than being invented — mean Q per decision is ₹806 greedy against ₹1,486
+  at depth 4.
+
+- **092** · Depth 4, not 2 or 3. *Depths 2 and 3 are indistinguishable (₹565,774 vs
+  ₹565,767); depth 4 jumps to ₹580,487. That is not a gradual gain — it is the first depth
+  that can see a customer contact **after** the debit budget is spent.* Documented as a
+  truncated search rather than an exact solve, because the belief is continuous.
+
+- **093** · The agent's cost model lives in `agent/economics.py`, not imported from
+  `world/config.py`. *A merchant genuinely knows its own comms costs, MDR and customer
+  value — those are its books. What it does not know is whether a retry will clear.* The
+  boundary falls between the merchant's economics and the world's physics, and that is the
+  honest placement.
+
+- **094** · **The estimator's probability is reweighted by a likelihood ratio, not
+  multiplied by belief mass.** *Multiplying double-discounts: the estimator learned a
+  marginal from a log where most cards were not expired, so it already averages over that.
+  On a transaction believed 42% expired the product landed ~9× too low and the agent
+  declined contacts it should have made.* Net value went from ₹129,046 to ₹137,715 on the
+  sample that exposed it.
+
+- **095** · That reweight is clipped **asymmetrically** — capped above, uncapped below.
+  *A large ratio means the estimator is extrapolating, so optimism is bounded. A small one
+  is not extrapolation; it is the belief saying the action cannot address what is wrong,
+  which is logic.* A symmetric 0.15 floor made the engine prefer a route switch at ~100%
+  card_expired belief. It also fails safe: under-estimating declines to spend,
+  over-estimating spends on false hope.
+
+- **096** · The gate layer can only **shrink** the action set, and every gate names itself.
+  *A policy blocked by a cap and one that chose to stop take the same action and are
+  completely different decisions.* Both engine and gates enforce the caps — defence in
+  depth — and when they disagree the gate wins.
+
+- **097** · `abandon` is always admissible and scores exactly zero. *That is what makes
+  value non-negative and walking away a decision rather than a failure mode.*
+
+- **098** · **The predicted thesis sentence is wrong and the report says so.** *Predicted:
+  recovers less, nets more. Actual: +₹692,259 net over the ceiling while recovering
+  ₹168,032 MORE, on 39% of the annoyance cost.* Stronger, but a different sentence —
+  `thesis_line` reads the numbers and names which outcome occurred, including failure.
+
+- **099** · The paired **win rate is 51.1%** and that is reported beside the mean. *The
+  agent is better on average, not typically — the gain is carried by large wins on some
+  transactions. A judge would find that; better to say it.*
+
+- **100** · **Both diagnosis arms are given the merchant's own base rates.** *Withholding
+  them from only the model was not a fair ablation: the rules table encodes the same
+  population knowledge in its code priors, and a merchant genuinely does know its own
+  decline mix.* Measured before changing anything — the model scored 30.1% against the
+  rules table's 65.5%, and reweighting its cached posteriors by the true mix lifted it to
+  45.6%, so **roughly half the deficit was a missing prior rather than bad evidence
+  reading**. The line held: base rates in, `P(cause | code)` out, asserted by a test.
+
+- **101** · Given the prior, the model becomes **better calibrated than the rules table**
+  (ECE 0.079 against 0.103) while still trailing on accuracy. *That is the shape the
+  project predicted for where a model earns its place — honest probabilities rather than
+  sharper labels — and the value engine consumes probabilities.* It also means accuracy and
+  calibration genuinely come apart here, which is worth saying out loud.
+
+- **102** · A local 7B was run to completion rather than abandoned when it looked bad.
+  *"A 7B model does not clear a well-built rule table" is a real finding about where the
+  capability threshold sits, and it is only worth anything if the run was honest — which
+  meant diagnosing why rather than switching models until one won.*
+
 ## Template for later phases
 
 ```

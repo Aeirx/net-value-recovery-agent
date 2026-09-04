@@ -1,9 +1,13 @@
 """Rendering results: markdown to stdout, a PNG, and one server-rendered HTML page.
 
 The layout is opinionated about one thing. **Gross recovered sits immediately beside net
-value**, because the submission's claim is a trade, not a win: recover less money, produce
-more value. Putting the column the agent loses on next to the column it wins on is what
-makes that claim checkable at a glance instead of buried.
+value**, so the reader can check what was traded for what without hunting.
+
+The project predicted the agent would recover *less* and net *more*. It does not: it nets
+more while recovering marginally more too, by spending far less on customer goodwill. The
+labels here deliberately do not assert the prediction — ``thesis_line`` reads the actual
+numbers and says which of the three possible outcomes occurred, including the one where the
+thesis fails. A report that can only describe the hoped-for result is not a measurement.
 """
 
 from __future__ import annotations
@@ -73,8 +77,10 @@ def thesis_line(agent: PolicyMetrics, ceiling: PolicyMetrics) -> str:
         )
     return (
         f"`{agent.policy}` beat `{ceiling.policy}` on net value by ₹{_inr(net_gap)} "
-        f"but did not recover less (Δ gross ₹{_inr(gross_gap)}), so the trade is not "
-        f"demonstrated."
+        f"while recovering ₹{_inr(-gross_gap)} MORE, not less — so the predicted trade "
+        f"(recover less, net more) is not what happened. It won on both axes instead, by "
+        f"spending ₹{_inr(ceiling.annoyance_cost_inr - agent.annoyance_cost_inr)} less on "
+        f"customer goodwill. Report that, not the prediction."
     )
 
 
@@ -105,7 +111,7 @@ def plot_net_vs_gross(rows: Sequence[PolicyMetrics], path: str | Path) -> Path |
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels, rotation=12, ha="right")
     ax.set_ylabel("₹")
-    ax.set_title("Recovering less, netting more — gross against net by policy")
+    ax.set_title("Gross recovered against net value, by policy")
     ax.legend(frameon=False)
     ax.spines[["top", "right"]].set_visible(False)
     ax.grid(axis="y", alpha=0.25)
@@ -185,8 +191,9 @@ def write_html(
 <h1>Baselines — net value against the success-rate ceiling</h1>
 <p class="meta">config {html.escape(config_hash[:16])} &middot; {n_replications} replications
 &middot; generated {datetime.now().isoformat(timespec='seconds')}</p>
-<div class="note">Gross recovered sits beside net value on purpose. The claim is a trade,
-not a win: recover less money, produce more value.</div>
+<div class="note">Gross recovered sits beside net value so the trade is visible rather
+than asserted. Read the two columns together: the interesting policies are the ones that
+move them in different directions.</div>
 <table>
 <thead><tr><th>Policy</th><th class="num">Net value</th><th class="num">Gross recovered</th>
 <th class="num">Recovery</th><th class="num">Attempts</th><th class="num">Contacts</th>

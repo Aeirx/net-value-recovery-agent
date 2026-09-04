@@ -2,99 +2,99 @@
   "config_hash": "199ea9d47145b7bc0856b11f42767b7f88e42d36546a4ccc67a80451f541f1fa",
   "deltas_vs_ceiling": {
     "max_recovery_oracle": {
-      "ci_high": 336561.85,
-      "ci_low": 125404.66,
-      "mean": 215048.95,
+      "ci_high": 2918004.8,
+      "ci_low": 1444260.96,
+      "mean": 2083634.03,
       "sign_resolved": true,
-      "win_rate": 0.8618
+      "win_rate": 0.8644
     },
     "naive_retry": {
-      "ci_high": -14497.01,
-      "ci_low": -260599.55,
-      "mean": -130062.94,
+      "ci_high": -386611.27,
+      "ci_low": -2946797.01,
+      "mean": -1548073.53,
       "sign_resolved": true,
-      "win_rate": 0.7391
+      "win_rate": 0.7349
     },
     "net_value": {
-      "ci_high": 150124.0,
-      "ci_low": 10994.04,
-      "mean": 77695.51,
+      "ci_high": 1226555.69,
+      "ci_low": 163163.02,
+      "mean": 692259.25,
       "sign_resolved": true,
-      "win_rate": 0.5099
+      "win_rate": 0.5114
     },
     "no_retry": {
-      "ci_high": -1214603.56,
-      "ci_low": -2257280.42,
-      "mean": -1687883.94,
+      "ci_high": -12451958.85,
+      "ci_low": -22258539.03,
+      "mean": -16964194.88,
       "sign_resolved": true,
-      "win_rate": 0.3743
+      "win_rate": 0.3776
     }
   },
   "policies": {
     "max_recovery": {
-      "abandoned_but_recoverable": 420,
-      "annoyance_cost_inr": 92929.08,
-      "attempt_cost_inr": 28575.4,
-      "attempts": 2325,
-      "contacts": 1051,
+      "abandoned_but_recoverable": 4237,
+      "annoyance_cost_inr": 916693.0,
+      "attempt_cost_inr": 299863.1,
+      "attempts": 23496,
+      "contacts": 10767,
       "gate_fires": 0,
-      "gross_recovered_inr": 1809388.42,
-      "net_value_inr": 1687883.94,
-      "recovery_rate": 0.585,
+      "gross_recovered_inr": 18180750.98,
+      "net_value_inr": 16964194.88,
+      "recovery_rate": 0.5819,
       "terminal_reasons": {
-        "abandoned": 498,
-        "recovered": 702
+        "abandoned": 5017,
+        "recovered": 6983
       }
     },
     "max_recovery_oracle": {
-      "abandoned_but_recoverable": 343,
-      "annoyance_cost_inr": 22648.48,
-      "attempt_cost_inr": 11038.1,
-      "attempts": 1682,
-      "contacts": 323,
-      "gate_fires": 130,
-      "gross_recovered_inr": 1936619.47,
-      "net_value_inr": 1902932.89,
-      "recovery_rate": 0.6492,
+      "abandoned_but_recoverable": 3461,
+      "annoyance_cost_inr": 205490.9,
+      "attempt_cost_inr": 103983.4,
+      "attempts": 16991,
+      "contacts": 3071,
+      "gate_fires": 1302,
+      "gross_recovered_inr": 19357303.2,
+      "net_value_inr": 19047828.91,
+      "recovery_rate": 0.6466,
       "terminal_reasons": {
-        "abandoned": 405,
-        "expired": 16,
-        "recovered": 779
+        "abandoned": 4076,
+        "expired": 165,
+        "recovered": 7759
       }
     },
     "naive_retry": {
-      "abandoned_but_recoverable": 512,
+      "abandoned_but_recoverable": 5225,
       "annoyance_cost_inr": 0.0,
-      "attempt_cost_inr": 1551.6,
-      "attempts": 2586,
+      "attempt_cost_inr": 15667.2,
+      "attempts": 26112,
       "contacts": 0,
       "gate_fires": 0,
-      "gross_recovered_inr": 1559372.6,
-      "net_value_inr": 1557821.0,
-      "recovery_rate": 0.5083,
+      "gross_recovered_inr": 15431788.55,
+      "net_value_inr": 15416121.35,
+      "recovery_rate": 0.4996,
       "terminal_reasons": {
-        "abandoned": 590,
-        "recovered": 610
+        "abandoned": 6005,
+        "recovered": 5995
       }
     },
     "net_value": {
-      "abandoned_but_recoverable": 402,
-      "annoyance_cost_inr": 35455.73,
-      "attempt_cost_inr": 33903.2,
-      "attempts": 2555,
-      "contacts": 543,
+      "abandoned_but_recoverable": 4105,
+      "annoyance_cost_inr": 355452.39,
+      "attempt_cost_inr": 336876.6,
+      "attempts": 25643,
+      "contacts": 5379,
       "gate_fires": 0,
-      "gross_recovered_inr": 1834938.38,
-      "net_value_inr": 1765579.45,
-      "recovery_rate": 0.6,
+      "gross_recovered_inr": 18348783.11,
+      "net_value_inr": 17656454.12,
+      "recovery_rate": 0.5929,
       "terminal_reasons": {
-        "abandoned": 459,
-        "expired": 21,
-        "recovered": 720
+        "abandoned": 4653,
+        "expired": 232,
+        "recovered": 7115
       }
     },
     "no_retry": {
-      "abandoned_but_recoverable": 1122,
+      "abandoned_but_recoverable": 11220,
       "annoyance_cost_inr": 0.0,
       "attempt_cost_inr": 0.0,
       "attempts": 0,
@@ -104,9 +104,9 @@
       "net_value_inr": 0.0,
       "recovery_rate": 0.0,
       "terminal_reasons": {
-        "abandoned": 1200
+        "abandoned": 12000
       }
     }
   },
-  "replications": 3
+  "replications": 30
 }
