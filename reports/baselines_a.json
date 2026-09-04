@@ -2,29 +2,29 @@
   "config_hash": "199ea9d47145b7bc0856b11f42767b7f88e42d36546a4ccc67a80451f541f1fa",
   "deltas_vs_ceiling": {
     "max_recovery_oracle": {
-      "ci_high": 2918004.8,
-      "ci_low": 1444260.96,
+      "ci_high": 2918047.95,
+      "ci_low": 1442907.54,
       "mean": 2083634.03,
       "sign_resolved": true,
       "win_rate": 0.8644
     },
     "naive_retry": {
-      "ci_high": -386611.27,
-      "ci_low": -2946797.01,
+      "ci_high": -356729.67,
+      "ci_low": -2942024.2,
       "mean": -1548073.53,
       "sign_resolved": true,
       "win_rate": 0.7349
     },
     "net_value": {
-      "ci_high": 1226555.69,
-      "ci_low": 163163.02,
-      "mean": 692259.25,
+      "ci_high": 1221923.3,
+      "ci_low": 167356.87,
+      "mean": 693363.49,
       "sign_resolved": true,
-      "win_rate": 0.5114
+      "win_rate": 0.5136
     },
     "no_retry": {
-      "ci_high": -12451958.85,
-      "ci_low": -22258539.03,
+      "ci_high": -12329992.83,
+      "ci_low": -22201972.02,
       "mean": -16964194.88,
       "sign_resolved": true,
       "win_rate": 0.3776
@@ -78,19 +78,19 @@
       }
     },
     "net_value": {
-      "abandoned_but_recoverable": 4105,
-      "annoyance_cost_inr": 355452.39,
-      "attempt_cost_inr": 336876.6,
-      "attempts": 25643,
-      "contacts": 5379,
+      "abandoned_but_recoverable": 4103,
+      "annoyance_cost_inr": 355899.39,
+      "attempt_cost_inr": 336764.7,
+      "attempts": 25454,
+      "contacts": 5409,
       "gate_fires": 0,
-      "gross_recovered_inr": 18348783.11,
-      "net_value_inr": 17656454.12,
-      "recovery_rate": 0.5929,
+      "gross_recovered_inr": 18350222.45,
+      "net_value_inr": 17657558.36,
+      "recovery_rate": 0.5931,
       "terminal_reasons": {
-        "abandoned": 4653,
-        "expired": 232,
-        "recovered": 7115
+        "abandoned": 4672,
+        "expired": 211,
+        "recovered": 7117
       }
     },
     "no_retry": {

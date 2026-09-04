@@ -143,7 +143,12 @@ def main() -> int:
     ceiling = metrics[CEILING]
     print(f"\n**Net value to beat:** ₹{ceiling.net_value_inr:,.0f}")
     print(f"**Gross recovery to fall short of:** ₹{ceiling.gross_recovered_inr:,.0f}")
-    print(f"\n_Best baseline against the ceiling:_ {thesis_line(max(rows, key=lambda m: m.net_value_inr), ceiling)}")
+    # Name the agent explicitly. Picking the highest-net policy selected the *oracle*,
+    # which is the ablation's ceiling rather than a contender — so the headline sentence
+    # was describing a policy that reads ground truth.
+    agent = metrics.get("net_value")
+    if agent is not None:
+        print(f"\n_The thesis row:_ {thesis_line(agent, ceiling)}")
 
     REPORTS.mkdir(exist_ok=True)
     image = plot_net_vs_gross(rows, REPORTS / f"baselines_{args.config}.png")

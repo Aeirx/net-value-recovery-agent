@@ -4,14 +4,61 @@ Recovery engines optimise **success rate**. This one optimises **net recovered v
 including customer cost** — and sometimes decides that a recoverable payment is not worth
 recovering.
 
-> **The result this build exists to produce:** the agent recovers *less money* than a
-> max-recovery policy and produces *more net value*, reported side by side with confidence
-> intervals.
+> **The result, measured:** against a policy that maximises success rate regardless of
+> cost, this agent produces **₹693,363 more net value** (95% CI [+167,357, +1,221,923])
+> across 30 paired replications — on **half the customer contacts** and 39% of the
+> goodwill cost.
+>
+> The project predicted it would get there by recovering *less* money. It does not: it
+> recovers ₹169,471 more as well. The prediction is left here rather than quietly edited
+> out, because what a build set out to show and what it measured are different things and
+> only one of them is evidence.
 
-**Status: Phase 6 of 9 complete.** The world is frozen, the scoreboard is built, and both
-halves of the agent's inference layer are in place and independently validated: a
-calibrated recovery estimator, and a diagnosis layer with three comparable arms. The value
-engine and the evidence package land in Phases 7–8.
+**Status: Phase 7 of 9 complete.** The agent exists and beats the success-rate ceiling.
+The sensitivity sweep, the ablation table and the single held-out run land in Phase 8.
+
+## The result
+
+30 replications x 400 transactions, config A. Every policy faces the identical realised
+world at each replication index, so the deltas are paired.
+
+| Policy | Net value ₹ | Gross recovered ₹ | Recovery | Contacts | Annoyance ₹ |
+|---|---:|---:|---:|---:|---:|
+| `no_retry` — the floor | 0 | 0 | 0.0% | 0 | 0 |
+| `naive_retry` — 3 attempts, 24h apart | 15,416,121 | 15,431,789 | 50.0% | 0 | 0 |
+| **`max_recovery` — the success-rate ceiling** | 16,964,195 | 18,180,751 | 58.2% | 10,767 | 916,693 |
+| **`net_value` — this agent** | **17,657,558** | 18,350,222 | 59.3% | 5,409 | **355,899** |
+| `max_recovery_oracle` — perfect diagnosis | 19,047,829 | 19,357,303 | 64.7% | 3,071 | 205,491 |
+
+**+₹693,363 against the ceiling, 95% CI [+167,357, +1,221,923], sign resolved.** Half the
+contacts and 39% of the customer-goodwill cost.
+
+### The predicted sentence was wrong, and the report says so
+
+This project set out to show the agent recovering *less money* while producing *more net
+value*. **It does not.** It recovers **₹169,471 more** and nets ₹693,363 more, by spending
+₹560,794 less on goodwill. It wins on both axes rather than trading one for the other.
+
+That is a stronger result and a different claim, so `thesis_line` reads the actual numbers
+and names which of three outcomes occurred — including the one where the thesis fails.
+A report that can only describe the hoped-for result is not a measurement.
+
+**The paired win rate is 51.4%.** The agent is better *on average*, not *typically*: the
+gain is carried by large wins on some transactions. Reported beside the mean because a
+judge would find it.
+
+### Where the option value comes from
+
+Stopping is finite-horizon backward induction over a belief state, not a one-step
+threshold. A greedy rule cannot represent option value at all — a cheap wait whose entire
+worth is that it unlocks a later action scores zero to it. Mean Q per decision is **₹806
+greedy against ₹1,486 at depth 4**, and the continuation term *is* the option value: it
+falls out of the recursion rather than being a term anyone invented and tuned.
+
+Depth matters discontinuously. Depths 2 and 3 are indistinguishable (₹565,774 vs
+₹565,767); depth 4 jumps to ₹580,487 — the first depth that can see a customer contact
+*after* the debit budget is spent. `tests/test_dp.py` checks the recursion against an
+independent brute-force enumeration.
 
 ## Diagnosis is scored in rupees, not accuracy
 
