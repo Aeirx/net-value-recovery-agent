@@ -1,94 +1,33 @@
 {
   "arms": [
     {
-      "accuracy": 0.6667,
-      "confidence_ece": 0.2987,
+      "accuracy": 1.0,
+      "confidence_ece": 0.4219,
       "diagnoser": "rules",
-      "mean_confidence": 0.5882,
-      "mean_entropy_bits": 1.683,
-      "mean_regret_inr": 53.11,
-      "n": 18,
-      "top2_accuracy": 0.7222,
-      "total_regret_inr": 955.95,
-      "worst_confusions": [
-        {
-          "diagnosed": "insufficient_funds",
-          "n": 2,
-          "regret_inr": 431.2,
-          "true": "route_degraded"
-        },
-        {
-          "diagnosed": "bank_outage",
-          "n": 1,
-          "regret_inr": 411.03,
-          "true": "risk_block"
-        },
-        {
-          "diagnosed": "insufficient_funds",
-          "n": 1,
-          "regret_inr": 113.42,
-          "true": "card_expired"
-        },
-        {
-          "diagnosed": "route_degraded",
-          "n": 1,
-          "regret_inr": 0.3,
-          "true": "afa_timeout"
-        },
-        {
-          "diagnosed": "bank_outage",
-          "n": 1,
-          "regret_inr": 0.0,
-          "true": "afa_timeout"
-        }
-      ]
+      "mean_confidence": 0.5781,
+      "mean_entropy_bits": 1.521,
+      "mean_regret_inr": 0.0,
+      "n": 2,
+      "top2_accuracy": 1.0,
+      "total_regret_inr": 0.0,
+      "worst_confusions": []
     },
     {
-      "accuracy": 0.3889,
-      "confidence_ece": 0.2917,
+      "accuracy": 0.5,
+      "confidence_ece": 0.3819,
       "diagnoser": "llm",
-      "mean_confidence": 0.5439,
-      "mean_entropy_bits": 1.801,
-      "mean_regret_inr": 125.02,
-      "n": 18,
-      "top2_accuracy": 0.6667,
-      "total_regret_inr": 2250.32,
+      "mean_confidence": 0.493,
+      "mean_entropy_bits": 1.926,
+      "mean_regret_inr": 205.51,
+      "n": 2,
+      "top2_accuracy": 1.0,
+      "total_regret_inr": 411.03,
       "worst_confusions": [
         {
-          "diagnosed": "risk_block",
-          "n": 1,
-          "regret_inr": 574.62,
-          "true": "route_degraded"
-        },
-        {
           "diagnosed": "insufficient_funds",
           "n": 1,
           "regret_inr": 411.03,
           "true": "risk_block"
-        },
-        {
-          "diagnosed": "bank_outage",
-          "n": 1,
-          "regret_inr": 411.03,
-          "true": "risk_block"
-        },
-        {
-          "diagnosed": "mandate_dead",
-          "n": 2,
-          "regret_inr": 236.29,
-          "true": "insufficient_funds"
-        },
-        {
-          "diagnosed": "insufficient_funds",
-          "n": 1,
-          "regret_inr": 215.6,
-          "true": "route_degraded"
-        },
-        {
-          "diagnosed": "risk_block",
-          "n": 1,
-          "regret_inr": 175.51,
-          "true": "insufficient_funds"
         }
       ]
     },
@@ -99,7 +38,7 @@
       "mean_confidence": 1.0,
       "mean_entropy_bits": 0.0,
       "mean_regret_inr": 0.0,
-      "n": 18,
+      "n": 2,
       "top2_accuracy": 1.0,
       "total_regret_inr": 0.0,
       "worst_confusions": []
@@ -108,90 +47,44 @@
   "config_hash": "199ea9d47145b7bc0856b11f42767b7f88e42d36546a4ccc67a80451f541f1fa",
   "confusion": {
     "llm": {
-      "afa_timeout": {
-        "afa_timeout": 1,
-        "bank_outage": 2
-      },
       "bank_outage": {
         "bank_outage": 1
       },
-      "card_expired": {
-        "insufficient_funds": 1,
-        "mandate_dead": 1
-      },
-      "insufficient_funds": {
-        "insufficient_funds": 5,
-        "mandate_dead": 2,
-        "risk_block": 1
-      },
       "risk_block": {
-        "bank_outage": 1,
         "insufficient_funds": 1
-      },
-      "route_degraded": {
-        "insufficient_funds": 1,
-        "risk_block": 1
       }
     },
     "oracle": {
-      "afa_timeout": {
-        "afa_timeout": 3
-      },
       "bank_outage": {
         "bank_outage": 1
       },
-      "card_expired": {
-        "card_expired": 2
-      },
-      "insufficient_funds": {
-        "insufficient_funds": 8
-      },
       "risk_block": {
-        "risk_block": 2
-      },
-      "route_degraded": {
-        "route_degraded": 2
+        "risk_block": 1
       }
     },
     "rules": {
-      "afa_timeout": {
-        "afa_timeout": 1,
-        "bank_outage": 1,
-        "route_degraded": 1
-      },
       "bank_outage": {
         "bank_outage": 1
       },
-      "card_expired": {
-        "card_expired": 1,
-        "insufficient_funds": 1
-      },
-      "insufficient_funds": {
-        "insufficient_funds": 8
-      },
       "risk_block": {
-        "bank_outage": 1,
         "risk_block": 1
-      },
-      "route_degraded": {
-        "insufficient_funds": 2
       }
     }
   },
   "llm_usage": {
-    "cached_calls": 18,
+    "cached_calls": 0,
     "errors": 0,
     "estimated_cost_usd": 0.0,
-    "input_tokens": 16838,
-    "live_calls": 0,
-    "model": "gemini-3.6-flash",
-    "output_tokens": 2702,
-    "provider": "gemini",
+    "input_tokens": 1849,
+    "live_calls": 2,
+    "model": "local/qwen2.5:7b-instruct",
+    "output_tokens": 306,
+    "provider": "local",
     "retries": 0,
-    "wall_seconds": 0.1
+    "wall_seconds": 132.4
   },
-  "model": "gemini-3.6-flash",
-  "n": 60,
+  "model": "local/qwen2.5:7b-instruct",
+  "n": 2,
   "regret_matrix": {
     "afa_timeout->bank_outage": 0.0,
     "afa_timeout->card_expired": 332.2,

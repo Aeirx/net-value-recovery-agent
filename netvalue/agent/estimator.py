@@ -57,19 +57,38 @@ _CI_DRAWS = 4_000
 
 @dataclass(frozen=True, slots=True)
 class Estimate:
-    """A probability with its uncertainty and its provenance."""
+    """A probability with its uncertainty and its provenance.
+
+    The credible interval is computed **on access**, not on construction. The value engine
+    calls this thousands of times per episode and reads only ``p``; drawing 4,000 beta
+    samples each time made the interval — which exists for the audit log and for reporting
+    — the dominant cost of the search.
+    """
 
     p: float
     alpha: float
     beta: float
-    #: 90% credible interval on the underlying success rate.
-    low: float
-    high: float
     #: Raw observations in the finest cell that had any. Zero means pure backoff.
     n_support: int
     #: How many rungs of the ladder had to be climbed to find data. 0 = the finest cell
     #: had observations; ``len(BACKOFF_LEVELS) - 1`` = nothing matched but the global rate.
     backoff_depth: int
+
+    @property
+    def low(self) -> float:
+        """Lower end of the 90% credible interval on the underlying rate."""
+        return self._interval()[0]
+
+    @property
+    def high(self) -> float:
+        return self._interval()[1]
+
+    def _interval(self) -> tuple[float, float]:
+        if self.alpha <= 0.0 or self.beta <= 0.0:
+            return (self.p, self.p)
+        draws = np.random.default_rng(0).beta(self.alpha, self.beta, _CI_DRAWS)
+        low, high = np.quantile(draws, [0.05, 0.95])
+        return (float(low), float(high))
 
     @property
     def effective_n(self) -> float:
@@ -104,6 +123,7 @@ class RecoveryEstimator:
         ]
         self._fitted = False
         self._n_rows = 0
+        self._cache: dict[Features, Estimate] = {}
 
     # ------------------------------------------------------------------ fitting
 
@@ -128,6 +148,7 @@ class RecoveryEstimator:
         ]
         self._n_rows = n
         self._fitted = True
+        self._cache.clear()
         return self
 
     @classmethod
@@ -177,26 +198,28 @@ class RecoveryEstimator:
         return alpha, beta, n_support, finest_with_data
 
     def predict(self, features: Features) -> Estimate:
+        """Memoised on the feature cell: the value engine asks for the same cell many
+        times while searching, and the answer cannot change between asks."""
+        cached = self._cache.get(features)
+        if cached is not None:
+            return cached
         alpha, beta, n_support, backoff_depth = self._posterior(features)
-        p = alpha / (alpha + beta)
-        draws = np.random.default_rng(0).beta(alpha, beta, _CI_DRAWS)
-        low, high = np.quantile(draws, [0.05, 0.95])
-        return Estimate(
-            p=float(p),
+        estimate = Estimate(
+            p=float(alpha / (alpha + beta)),
             alpha=float(alpha),
             beta=float(beta),
-            low=float(low),
-            high=float(high),
             n_support=n_support,
             backoff_depth=backoff_depth,
         )
+        self._cache[features] = estimate
+        return estimate
 
     def predict_for(
         self, observation: Observation, action: ActionKind, *, contact_index: int | None = None
     ) -> Estimate:
         """The call the value engine makes: "if I do this now, does it work?"."""
         if action is ActionKind.ABANDON:
-            return Estimate(0.0, 0.0, 1.0, 0.0, 0.0, 0, 0)
+            return Estimate(p=0.0, alpha=0.0, beta=1.0, n_support=0, backoff_depth=0)
         return self.predict(from_observation(observation, action, contact_index=contact_index))
 
     # ------------------------------------------------------------- introspection
