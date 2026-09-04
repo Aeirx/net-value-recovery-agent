@@ -15,8 +15,15 @@ What it cannot do is weigh those cues *against each other* when they conflict â€
 payer whose card also shows expired, on a code that covers three causes. That conflict is
 where a model earns its place, and Phase 8's ablation will say by how much in rupees.
 
-Every weight below is a hand-written prior over documented code meanings. None of them is
-read from the world's ``P(code | cause)`` matrix, which the agent cannot see.
+Every weight below is a hand-written prior over documented code meanings. None is read
+from the world's ``P(code | cause)`` matrix, which the agent cannot see.
+
+**But be honest about the advantage.** They were written after that world was designed, by
+the same person, so they land closer to the true posteriors than an outsider working from
+the documented meanings alone would manage. A real payments engineer has genuinely seen
+their own decline distribution, so the arm is realistic rather than cheating â€” but the
+model arm gets no equivalent prior, and a narrow rules win is therefore not evidence that
+rules beat models. Say so beside the result.
 """
 
 from __future__ import annotations

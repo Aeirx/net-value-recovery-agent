@@ -466,6 +466,15 @@ Full sourcing with grades and URLs in [`CALIBRATION.md`](CALIBRATION.md).
   20. A full 400-transaction pass is therefore 20 days on one model, so the free tier is
   useful for validating the pipeline and not for producing the result.*
 
+- **090** · **The rules arm is quietly advantaged, and this must be said out loud.**
+  *Its `P(cause | code)` priors were written after the world was designed, by the same
+  person, so they sit closer to the true posteriors than an outsider could get from the
+  documented code meanings alone.* Two defences, and the honest answer is the second:
+  a real payments engineer genuinely has seen their own decline distribution, so the arm
+  is realistic rather than cheating; but the model arm gets no equivalent prior, so a
+  narrow rules win is not evidence that rules beat models. Report the asymmetry beside
+  the result rather than leaving a judge to find it.
+
 ## Template for later phases
 
 ```
